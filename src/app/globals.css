@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+@theme {
+  --color-night: #070815;
+  --color-dusk: #0e1029;
+  --color-dusk-2: #151839;
+  --color-line: rgb(255 255 255 / 0.09);
+  --color-moon: #efe6cf;
+  --color-mist: #a3a6cc;
+  --color-violet: #8f82f7;
+  --color-violet-deep: #2b2670;
+  --color-ember: #f0a27a;
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-hanken), system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-night);
+  background-image: radial-gradient(ellipse 80% 50% at 50% -10%, #1d1654 0%, transparent 70%);
+  background-attachment: fixed;
+  color: var(--color-moon);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* A faint, fixed star field. Static on purpose. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 78% 12%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 44% 32%, #dcd6ff 50%, transparent 51%),
+    radial-gradient(1px 1px at 90% 44%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 22% 62%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 62% 74%, #dcd6ff 50%, transparent 51%),
+    radial-gradient(1px 1px at 8% 88%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 84% 90%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 52% 8%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 34% 94%, #fff 50%, transparent 51%);
+}
+
+::selection {
+  background: var(--color-violet-deep);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-violet);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors duration-200 disabled:opacity-50;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-dusk/80 backdrop-blur-sm;
+  }
+  .card-link {
+    @apply transition-colors duration-200 hover:border-violet/40 hover:bg-dusk-2/80;
+  }
+  .btn-primary {
+    @apply btn bg-moon text-night hover:bg-white;
+  }
+  .btn-ghost {
+    @apply btn border border-line text-moon hover:border-violet/50 hover:bg-white/5;
+  }
+  .btn-danger {
+    @apply btn border border-red-400/30 text-red-300 hover:bg-red-400/10;
+  }
+  .input {
+    @apply w-full rounded-xl border border-line bg-night/70 px-4 py-3 text-moon placeholder:text-mist/60 transition-colors focus:border-violet/70 focus:outline-none;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full border border-line px-2.5 py-0.5 text-xs text-mist transition-colors hover:border-violet/50 hover:text-moon;
+  }
+  .label {
+    @apply mb-1.5 block text-sm text-mist;
+  }
+}
+
+/* The one deliberate moment of motion: the moon slowly breathing. */
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 80px 10px rgb(239 230 207 / 0.18), 0 0 220px 60px rgb(143 130 247 / 0.16); }
+  50% { box-shadow: 0 0 110px 22px rgb(239 230 207 / 0.26), 0 0 260px 80px rgb(143 130 247 / 0.22); }
+}
+.moon {
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 62% 70%, rgb(150 138 105 / 0.35) 0 6%, transparent 7%),
+    radial-gradient(circle at 34% 40%, rgb(150 138 105 / 0.3) 0 9%, transparent 10%),
+    radial-gradient(circle at 72% 30%, rgb(150 138 105 / 0.25) 0 5%, transparent 6%),
+    radial-gradient(circle at 36% 30%, #fffbea 0%, #ebe0bd 55%, #b8ac86 100%);
+  animation: breathe 9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .moon { animation: none; }
+  * { transition-duration: 0.01ms !important; }
+}
