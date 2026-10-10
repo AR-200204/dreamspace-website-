@@ -44,3 +44,11 @@ export function safeNext(value: FormDataEntryValue | string | null | undefined, 
 export function cleanSearch(q: string) {
   return q.replace(/[,()%*\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
 }
+
+// Only accept image URLs that point at OUR Supabase Storage bucket.
+export function storageUrl(value: FormDataEntryValue | null, bucket: "dream-images" | "avatars") {
+  const v = typeof value === "string" ? value.trim() : "";
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!v || !base) return "";
+  return v.startsWith(`${base}/storage/v1/object/public/${bucket}/`) ? v : "";
+}

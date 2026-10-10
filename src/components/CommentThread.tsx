@@ -7,6 +7,24 @@ import { ReportForm } from "./ReportForm";
 
 type Node = CommentRow & { children: Node[] };
 
+// Turns @username into a link to that profile.
+function WithMentions({ text }: { text: string }) {
+  const parts = text.split(/(@[A-Za-z0-9_]{3,20})/g);
+  return (
+    <>
+      {parts.map((part, i) =>
+        /^@[A-Za-z0-9_]{3,20}$/.test(part) ? (
+          <Link key={i} href={`/u/${part.slice(1)}`} className="text-violet hover:underline">
+            {part}
+          </Link>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
 function buildTree(rows: CommentRow[]): Node[] {
   const map = new Map<string, Node>();
   rows.forEach((r) => map.set(r.id, { ...r, children: [] }));
@@ -77,10 +95,11 @@ function CommentItem({
               <Sparkles size={13} aria-hidden /> Interpretation
             </span>
           )}
-          <span aria-hidden>•</span>
-          <time dateTime={node.created_at}>{timeAgo(node.created_at)}</time>
+          <time dateTime={node.created_at} className="text-mist/70">{timeAgo(node.created_at)}</time>
         </div>
-        <p className="mt-1.5 max-w-[68ch] whitespace-pre-wrap leading-relaxed">{node.body}</p>
+        <p className="mt-1.5 max-w-[68ch] whitespace-pre-wrap leading-relaxed">
+          <WithMentions text={node.body} />
+        </p>
 
         <div className="mt-2 flex flex-wrap items-center gap-4 text-sm">
           {signedIn && depth < 3 && (

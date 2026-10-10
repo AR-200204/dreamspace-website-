@@ -16,3 +16,10 @@ export async function getCurrentProfile(supabase: SupabaseClient) {
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
   return { user, profile };
 }
+
+// Which of these dreams has the signed-in user saved?
+export async function getSavedSet(supabase: SupabaseClient, userId: string | null | undefined, dreamIds: string[]) {
+  if (!userId || dreamIds.length === 0) return new Set<string>();
+  const { data } = await supabase.from("bookmarks").select("dream_id").in("dream_id", dreamIds);
+  return new Set((data ?? []).map((r) => r.dream_id as string));
+}

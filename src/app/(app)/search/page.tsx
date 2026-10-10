@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile, getSavedSet } from "@/lib/data";
 import { DreamCard, EmptyState, Pager } from "@/components/DreamCard";
 import { MOODS } from "@/lib/moods";
 import { PAGE_SIZE } from "@/lib/config";
@@ -35,6 +36,8 @@ export default async function SearchPage({
   const rows = (data ?? []) as DreamRow[];
   const hasMore = rows.length > PAGE_SIZE;
   const results = rows.slice(0, PAGE_SIZE);
+  const { user } = await getCurrentProfile(supabase);
+  const saved = await getSavedSet(supabase, user?.id, results.map((d) => d.id));
   const hasFilters = Boolean(q || tag || mood);
 
   const params: Record<string, string> = {};
@@ -79,7 +82,7 @@ export default async function SearchPage({
       ) : (
         <div className="space-y-4">
           {results.map((d) => (
-            <DreamCard key={d.id} dream={d} />
+            <DreamCard key={d.id} dream={d} saved={saved.has(d.id)} />
           ))}
         </div>
       )}

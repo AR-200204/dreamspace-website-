@@ -5,6 +5,8 @@ export const SITE = {
   description:
     "Share your dreams, explore other people's experiences, and discover the stories hiding in the night.",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  // Shown on the Terms and Privacy pages when set (NEXT_PUBLIC_CONTACT_EMAIL).
+  contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "",
 };
 
 export const PAGE_SIZE = 12;

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Link2, Share2 } from "lucide-react";
 
-export function ShareButtons({ url, title }: { url: string; title: string }) {
+export function ShareButtons({ url, title, storyUrl }: { url: string; title: string; storyUrl?: string }) {
   const [copied, setCopied] = useState(false);
   const text = encodeURIComponent(`${title} — a dream on DreamSpace`);
   const u = encodeURIComponent(url);
@@ -30,11 +30,15 @@ export function ShareButtons({ url, title }: { url: string; title: string }) {
     }
   }
 
-  const linkCls = "btn-ghost !px-3.5 !py-1.5";
+  const btnCls = "btn-ghost !px-3.5 !py-1.5";
+  const linkCls = "text-sm text-mist transition-colors hover:text-moon";
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <button type="button" onClick={nativeShare} className={linkCls}>
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+      <button type="button" onClick={nativeShare} className={btnCls}>
         <Share2 size={15} aria-hidden /> Share
+      </button>
+      <button type="button" onClick={copy} className={btnCls} aria-live="polite">
+        <Link2 size={15} aria-hidden /> {copied ? "Copied" : "Copy link"}
       </button>
       <a className={linkCls} target="_blank" rel="noopener noreferrer" href={`https://wa.me/?text=${text}%20${u}`}>
         WhatsApp
@@ -45,9 +49,11 @@ export function ShareButtons({ url, title }: { url: string; title: string }) {
       <a className={linkCls} target="_blank" rel="noopener noreferrer" href={`https://www.facebook.com/sharer/sharer.php?u=${u}`}>
         Facebook
       </a>
-      <button type="button" onClick={copy} className={linkCls} aria-live="polite">
-        <Link2 size={15} aria-hidden /> {copied ? "Copied" : "Copy link"}
-      </button>
+      {storyUrl && (
+        <a className={linkCls} href={storyUrl} target="_blank" rel="noopener noreferrer" title="Save this picture, then add it to an Instagram Story">
+          Instagram Story image
+        </a>
+      )}
     </div>
   );
 }

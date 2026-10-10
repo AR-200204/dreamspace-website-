@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { login } from "@/app/actions";
 import { AuthCard } from "@/components/AuthCard";
+import { Turnstile } from "@/components/Turnstile";
 import { GoogleButton } from "@/components/GoogleButton";
 
 export const metadata: Metadata = { title: "Log in" };
@@ -37,6 +38,7 @@ export default async function LoginPage({
           <label className="label" htmlFor="password">Password</label>
           <input id="password" name="password" type="password" required autoComplete="current-password" className="input" />
         </div>
+        <Turnstile />
         <button className="btn-primary w-full">Log in</button>
         <p className="text-center text-sm">
           <Link href="/forgot-password" className="text-mist hover:text-moon">

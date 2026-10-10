@@ -1,15 +1,17 @@
 export const MOODS = [
-  { value: "scared", label: "Scared", emoji: "😨" },
-  { value: "peaceful", label: "Peaceful", emoji: "😌" },
-  { value: "sad", label: "Sad", emoji: "😢" },
-  { value: "happy", label: "Happy", emoji: "😍" },
-  { value: "confused", label: "Confused", emoji: "😮" },
-  { value: "excited", label: "Excited", emoji: "🤩" },
-  { value: "neutral", label: "Neutral", emoji: "😐" },
-  { value: "mysterious", label: "Mysterious", emoji: "🌑" },
+  { value: "scared", color: "#ff7a6b", label: "Scared", emoji: "😨" },
+  { value: "peaceful", color: "#5fd6c4", label: "Peaceful", emoji: "😌" },
+  { value: "sad", color: "#6b8cff", label: "Sad", emoji: "😢" },
+  { value: "happy", color: "#ffd27a", label: "Happy", emoji: "😍" },
+  { value: "confused", color: "#c08bff", label: "Confused", emoji: "😮" },
+  { value: "excited", color: "#ff8fd0", label: "Excited", emoji: "🤩" },
+  { value: "neutral", color: "#9aa0c8", label: "Neutral", emoji: "😐" },
+  { value: "mysterious", color: "#8a84ff", label: "Mysterious", emoji: "🌑" },
 ] as const;
 
 export type MoodValue = (typeof MOODS)[number]["value"];
+
+export const DEFAULT_MOOD_COLOR = "#b9a8ff";
 
 export function getMood(value: string | null | undefined) {
   return MOODS.find((m) => m.value === value) ?? null;

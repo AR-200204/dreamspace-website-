@@ -16,6 +16,7 @@ export interface DreamRow {
   tags: string[];
   reaction_count: number;
   comment_count: number;
+  image_url: string | null;
 }
 
 export interface CommentRow {
@@ -37,4 +38,27 @@ export interface Profile {
   avatar_url: string | null;
   bio: string | null;
   created_at: string;
+}
+
+export interface NotificationRow {
+  id: string;
+  type: "reaction" | "comment" | "reply" | "follow" | "mention";
+  created_at: string;
+  read_at: string | null;
+  reaction_type: string | null;
+  actor_username: string | null;
+  dream_slug: string | null;
+  dream_title: string | null;
+  comment_id: string | null;
+}
+
+export interface ProfileStats {
+  dreams: number;
+  comments: number;
+  reactions_received: number;
+  reactions_given: number;
+  best_dream_reactions: number;
+  recurring_dreams: number;
+  followers: number;
+  following: number;
 }

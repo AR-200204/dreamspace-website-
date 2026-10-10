@@ -2,8 +2,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Moon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getTodayPrompt } from "@/lib/data";
+import { getCurrentProfile, getSavedSet, getTodayPrompt } from "@/lib/data";
 import { DreamCard, EmptyState, Pager } from "@/components/DreamCard";
+import { StreakCard, type Streak } from "@/components/StreakCard";
 import { PAGE_SIZE } from "@/lib/config";
 import type { DreamRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -17,14 +18,22 @@ export default async function FeedPage({
 }) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
-  const sort = sp.sort === "popular" ? "popular" : "latest";
+  const sort = sp.sort === "popular" ? "popular" : sp.sort === "following" ? "following" : "latest";
   const from = (page - 1) * PAGE_SIZE;
 
   const supabase = await createClient();
   const startOfDay = new Date();
   startOfDay.setUTCHours(0, 0, 0, 0);
 
+  const { user } = await getCurrentProfile(supabase);
+  let followedIds: string[] = [];
+  if (sort === "following" && user) {
+    const { data: f } = await supabase.from("follows").select("followee_id").eq("follower_id", user.id);
+    followedIds = (f ?? []).map((r) => r.followee_id as string);
+  }
+
   let query = supabase.from("public_dreams").select("*");
+  if (sort === "following") query = query.in("author_id", followedIds.length ? followedIds : ["00000000-0000-0000-0000-000000000000"]);
   query =
     sort === "popular"
       ? query.order("reaction_count", { ascending: false }).order("created_at", { ascending: false })
@@ -36,20 +45,22 @@ export default async function FeedPage({
     supabase.from("public_dreams").select("id", { count: "exact", head: true }).gte("created_at", startOfDay.toISOString()),
   ]);
 
+  const streak = user ? ((await supabase.rpc("my_streak")).data as Streak | null) : null;
   const dreams = (data ?? []) as DreamRow[];
   const hasMore = dreams.length > PAGE_SIZE;
   const visible = dreams.slice(0, PAGE_SIZE);
+  const saved = await getSavedSet(supabase, user?.id, visible.map((d) => d.id));
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      {streak && <StreakCard streak={streak} />}
       {prompt && (
-        <section aria-labelledby="dotd" className="card relative overflow-hidden p-6 sm:p-7">
-          <div aria-hidden className="moon absolute -right-8 -top-8 h-28 w-28 opacity-25" style={{ animation: "none" }} />
-          <h2 id="dotd" className="flex items-center gap-2 text-sm text-violet">
+        <section aria-labelledby="dotd" className="horizon relative overflow-hidden rounded-[1.75rem] border border-line p-6 sm:p-8">
+          <h2 id="dotd" className="flex items-center gap-2 !font-sans !text-sm !leading-normal text-violet">
             <Moon size={15} aria-hidden /> Dream of the Day
           </h2>
-          <p className="relative mt-2 max-w-md font-display text-2xl leading-snug">{prompt.question}</p>
-          <div className="relative mt-5 flex flex-wrap items-center gap-4">
+          <p className="relative mt-3 max-w-lg font-display text-[2rem] leading-[1.08] sm:text-[2.4rem]">{prompt.question}</p>
+          <div className="relative mt-7 flex flex-wrap items-center gap-4">
             <Link href={`/dreams/new?prompt=${prompt.id}`} className="btn-primary">
               Answer with a dream
             </Link>
@@ -65,10 +76,10 @@ export default async function FeedPage({
         </section>
       )}
 
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl">Dreams</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display">Dreams</h1>
         <div className="flex gap-1 rounded-full border border-line p-1 text-sm" role="tablist" aria-label="Sort dreams">
-          {(["latest", "popular"] as const).map((s) => (
+          {(user ? (["latest", "popular", "following"] as const) : (["latest", "popular"] as const)).map((s) => (
             <Link
               key={s}
               href={`/feed?sort=${s}`}
@@ -83,8 +94,8 @@ export default async function FeedPage({
       </div>
 
       {visible.length === 0 ? (
-        <EmptyState title="No dreams yet">
-          <p>Be the first to share one.</p>
+        <EmptyState title={sort === "following" ? "Nothing from people you follow yet" : "No dreams yet"}>
+          <p>{sort === "following" ? "Follow dreamers from their profiles to see their named dreams here." : "Be the first to share one."}</p>
           <Link href="/dreams/new" className="btn-primary mt-5">
             Share a dream
           </Link>
@@ -92,7 +103,7 @@ export default async function FeedPage({
       ) : (
         <div className="space-y-4">
           {visible.map((d) => (
-            <DreamCard key={d.id} dream={d} />
+            <DreamCard key={d.id} dream={d} saved={saved.has(d.id)} />
           ))}
         </div>
       )}

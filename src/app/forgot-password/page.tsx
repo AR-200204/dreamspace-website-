@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { forgotPassword } from "@/app/actions";
 import { AuthCard } from "@/components/AuthCard";
+import { Turnstile } from "@/components/Turnstile";
 
 export const metadata: Metadata = { title: "Reset your password" };
 
@@ -28,6 +29,7 @@ export default async function ForgotPasswordPage({
           <label className="label" htmlFor="email">Email</label>
           <input id="email" name="email" type="email" required autoComplete="email" className="input" />
         </div>
+        <Turnstile />
         <button className="btn-primary w-full">Send reset link</button>
       </form>
     </AuthCard>
