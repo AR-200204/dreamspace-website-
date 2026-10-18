@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { deleteAccount, unblockUser, updateAvatar, updateBio } from "@/app/actions";
+import { deleteAccount, unblockUser, updateAvatar, updateBio, updateUsername } from "@/app/actions";
 import { ImageUpload } from "@/components/ImageUpload";
 import { InstallButton } from "@/components/InstallButton";
 import { createClient } from "@/lib/supabase/server";
@@ -40,6 +40,16 @@ export default async function SettingsPage({
         <h2 className="font-display text-xl">Profile photo</h2>
         <ImageUpload bucket="avatars" name="avatar_url" initialUrl={profile.avatar_url} maxSide={400} label="Photo" round />
         <button className="btn-primary">Save photo</button>
+      </form>
+
+      <form action={updateUsername} className="card space-y-4 p-6">
+        <h2 className="font-display text-xl">Username</h2>
+        <div>
+          <label className="label" htmlFor="username">Your username</label>
+          <input id="username" name="username" defaultValue={profile.username} required minLength={3} maxLength={20} pattern="[a-zA-Z0-9_]+" autoComplete="off" className="input" />
+          <p className="mt-1.5 text-xs text-mist/80">Letters, numbers and underscores. You can change it once every 30 days, and your profile link will change with it.</p>
+        </div>
+        <button className="btn-primary">Save username</button>
       </form>
 
       <form action={updateBio} className="card space-y-4 p-6">

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile, getSavedSet } from "@/lib/data";
+import { getCurrentProfile, getFollowingSet, getSavedSet } from "@/lib/data";
 import { DreamCard, EmptyState, Pager } from "@/components/DreamCard";
+import { PersonList, type Person } from "@/components/PersonCard";
 import { MOODS } from "@/lib/moods";
 import { PAGE_SIZE } from "@/lib/config";
 import { cleanSearch } from "@/lib/utils";
@@ -38,6 +40,12 @@ export default async function SearchPage({
   const results = rows.slice(0, PAGE_SIZE);
   const { user } = await getCurrentProfile(supabase);
   const saved = await getSavedSet(supabase, user?.id, results.map((d) => d.id));
+  // Matching people (first page only)
+  let people: Person[] = [];
+  if (q.length >= 2 && page === 1) {
+    people = ((await supabase.rpc("search_people", { p_q: q, p_limit: 3 })).data ?? []) as Person[];
+  }
+  const following = await getFollowingSet(supabase, user?.id, people.map((p) => p.id));
   const hasFilters = Boolean(q || tag || mood);
 
   const params: Record<string, string> = {};
@@ -48,7 +56,10 @@ export default async function SearchPage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="font-display text-3xl">Search dreams</h1>
+      <div className="flex items-baseline justify-between gap-3">
+        <h1 className="font-display">Search dreams</h1>
+        <Link href="/explore" className="text-sm text-violet hover:underline">Browse themes and moods</Link>
+      </div>
 
       <form action="/search" className="card space-y-3 p-4">
         <div className="relative">
@@ -74,6 +85,16 @@ export default async function SearchPage({
         </div>
         <button className="btn-primary">Search</button>
       </form>
+
+      {people.length > 0 && (
+        <section aria-labelledby="people-results">
+          <div className="mb-2 flex items-baseline justify-between">
+            <h2 id="people-results" className="font-display">People</h2>
+            <Link href={`/people?q=${encodeURIComponent(q)}`} className="text-sm text-violet hover:underline">See all</Link>
+          </div>
+          <PersonList people={people} followingIds={following} meId={user?.id ?? null} />
+        </section>
+      )}
 
       {results.length === 0 ? (
         <EmptyState title={hasFilters ? "No dreams match that search" : "Search for a dream"}>

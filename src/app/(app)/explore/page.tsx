@@ -16,6 +16,11 @@ export default async function ExplorePage() {
         <p className="mt-2 text-mist">Browse by theme, or by how the dream felt.</p>
       </header>
 
+      <Link href="/people" className="card card-link block px-5 py-4">
+        <span className="font-display text-2xl">Find dreamers</span>
+        <span className="mt-1 block text-sm text-mist">Follow people whose dreams are like yours.</span>
+      </Link>
+
       <section aria-labelledby="themes">
         <h2 id="themes" className="mb-4 font-display text-xl">Themes</h2>
         <div className="flex flex-wrap gap-2.5">

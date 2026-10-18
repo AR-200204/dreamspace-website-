@@ -23,3 +23,10 @@ export async function getSavedSet(supabase: SupabaseClient, userId: string | nul
   const { data } = await supabase.from("bookmarks").select("dream_id").in("dream_id", dreamIds);
   return new Set((data ?? []).map((r) => r.dream_id as string));
 }
+
+// Which of these people does the signed-in user follow?
+export async function getFollowingSet(supabase: SupabaseClient, userId: string | null | undefined, personIds: string[]) {
+  if (!userId || personIds.length === 0) return new Set<string>();
+  const { data } = await supabase.from("follows").select("followee_id").eq("follower_id", userId).in("followee_id", personIds);
+  return new Set((data ?? []).map((r) => r.followee_id as string));
+}

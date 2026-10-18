@@ -10,6 +10,9 @@ import { getMood } from "@/lib/moods";
 import { analyzeDreams, toneShift, THEMES, type PatternDream, type ThemeGroup } from "@/lib/patterns";
 import { formatDate } from "@/lib/utils";
 
+// AI replies can take a while, so allow up to 60 seconds for the actions on this page.
+export const maxDuration = 60;
+
 export const metadata: Metadata = { title: "Your dream patterns", robots: { index: false } };
 
 const GROUPS: ThemeGroup[] = ["Situations", "People", "Places", "Creatures & elements", "Body"];
@@ -19,6 +22,12 @@ const AI_MESSAGES: Record<string, string> = {
   consent: "Please tick the box to confirm you're happy for your dream text to be sent to the AI service.",
   limit: "You've already created a report in the last 24 hours. Try again tomorrow.",
   few: "You need at least 3 dreams (that match your choices above) to create a report.",
+  busy: "AI reports are very popular today and have reached the daily limit. Please try again tomorrow.",
+  auth: "AI is temporarily unavailable. Please try again later.",
+  credits: "AI is temporarily unavailable. Please try again later.",
+  policy: "AI is temporarily unavailable. Please try again later.",
+  ratelimit: "The AI service is busy right now. Please try again in a minute.",
+  empty: "The AI didn't manage to answer that time. Please try again.",
   error: "The AI service didn't respond. Please try again in a moment.",
 };
 
@@ -31,8 +40,8 @@ function Bar({ value, max, label }: { value: number; max: number; label: string 
   );
 }
 
-export default async function InsightsPage({ searchParams }: { searchParams: Promise<{ ai?: string }> }) {
-  const { ai } = await searchParams;
+export default async function InsightsPage({ searchParams }: { searchParams: Promise<{ ai?: string; detail?: string }> }) {
+  const { ai, detail } = await searchParams;
   const supabase = await createClient();
   const { user } = await getCurrentProfile(supabase);
   if (!user) redirect("/login?next=/insights");
@@ -304,7 +313,12 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
         <h2 id="ai-report" className="flex items-center gap-2 font-display text-2xl">
           <Sparkles size={20} className="text-violet" aria-hidden /> Written pattern report (AI)
         </h2>
-        {ai && AI_MESSAGES[ai] && <p role="status" className="mt-4 rounded-xl border border-violet/30 bg-violet/10 px-4 py-3 text-sm">{AI_MESSAGES[ai]}</p>}
+        {ai && AI_MESSAGES[ai] && (
+          <p role="status" className="mt-4 rounded-xl border border-violet/30 bg-violet/10 px-4 py-3 text-sm">
+            {AI_MESSAGES[ai]}
+            {process.env.AI_DEBUG === "1" && detail && <code className="mt-2 block break-words text-xs text-mist">AI_DEBUG: {detail}</code>}
+          </p>
+        )}
 
         {report && (
           <div className="card mt-4 p-5">

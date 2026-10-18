@@ -53,6 +53,24 @@ coming back, moods and feelings over time, when you log dreams, dreams that echo
 It is calculated on the server from your own dreams with plain keyword matching. No AI, and nothing leaves your account.
 The optional **AI pattern report** uses the same `AI_*` settings, needs the person to tick a consent box, and is limited to one per day.
 
+## v7: AI with OpenRouter (free models)
+
+No database changes. In `.env.local` and in Vercel set: `AI_PROVIDER=openrouter`, `AI_API_KEY` (from openrouter.ai/keys) and
+`SUPABASE_SERVICE_ROLE_KEY`, then redeploy. Optional: `AI_MODEL` (up to 3 comma-separated model ids, tried in order),
+`AI_PRIVACY` (`strict` is the default and only uses providers that do not store or train on prompts), and `AI_SITE_DAILY_LIMIT`
+(default 40, because OpenRouter's free tier is about 50 requests a day for the whole account). Free models change often, so check
+openrouter.ai/collections/free-models. `AI_REASONING=low` (or `off`) speeds up models that think before answering. After buying $10 of credits once, raise `AI_SITE_DAILY_LIMIT` to about 900.
+
+## v6: profiles and people
+
+1. Copy the new files over your project, then run **`supabase/migration-05-people.sql`** once in the Supabase SQL Editor (after 02, 03 and 04).
+2. `git add . && git commit -m "v6" && git push`.
+
+New: a redesigned profile (banner tinted by the mood they dream in most, Follow button, "Follows you", followers and following lists,
+"dreams about" tags), a **People** page (`/people`) with search, suggested dreamers and "dreamers like you", a Follow button on named
+dream pages, people results in search, and username changes in Settings (once every 30 days). Only people who post dreams under their
+own name are ever suggested; anonymous-only posters never appear in any people list.
+
 ## v5: visual redesign ("midnight to dawn")
 
 No database changes, so just copy the files over and push. The site is now a night sky that fades to a faint dawn glow along the
@@ -95,6 +113,7 @@ supabase/schema.sql                   original tables, security rules, views
 supabase/migration-02-features.sql    bookmarks, follows, notifications, blocks, images, AI, admin
 supabase/migration-03-launch.sql      spam limits and streaks
 supabase/migration-04-insights.sql    stored AI pattern reports
+supabase/migration-05-people.sql      people discovery, follow suggestions, username limit
 src/lib/patterns.ts                   the pattern finder (themes, words, moods, echoes)
 src/proxy.ts                          keeps login sessions fresh, protects private pages
 src/app/actions.ts                    every write action

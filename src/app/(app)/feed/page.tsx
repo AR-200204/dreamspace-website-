@@ -95,7 +95,8 @@ export default async function FeedPage({
 
       {visible.length === 0 ? (
         <EmptyState title={sort === "following" ? "Nothing from people you follow yet" : "No dreams yet"}>
-          <p>{sort === "following" ? "Follow dreamers from their profiles to see their named dreams here." : "Be the first to share one."}</p>
+          <p>{sort === "following" ? "Follow dreamers to see their named dreams here." : "Be the first to share one."}</p>
+          {sort === "following" && <Link href="/people" className="btn-primary mt-5">Find dreamers</Link>}
           <Link href="/dreams/new" className="btn-primary mt-5">
             Share a dream
           </Link>

@@ -1,14 +1,17 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { DreamCard, EmptyState, Pager } from "@/components/DreamCard";
 import { FollowButton } from "@/components/ActionButtons";
+import { Avatar } from "@/components/Avatar";
 import { StreakCard, type Streak } from "@/components/StreakCard";
 import { blockUser, logout, unblockUser } from "@/app/actions";
 import { PAGE_SIZE } from "@/lib/config";
 import { earnedBadges } from "@/lib/badges";
 import { getSavedSet } from "@/lib/data";
+import { DEFAULT_MOOD_COLOR, MOODS } from "@/lib/moods";
 import { cn, excerpt, formatDate, timeAgo } from "@/lib/utils";
 import type { CommentRow, DreamRow, ProfileStats } from "@/lib/types";
 
@@ -46,23 +49,41 @@ export default async function ProfilePage({
   ];
   const tab = tabs.some((t) => t.key === sp.tab) ? sp.tab! : "dreams";
 
-  const [statsRes, followRes, blockRes] = await Promise.all([
+  const [statsRes, followRes, followsYouRes, blockRes, aboutRes] = await Promise.all([
     supabase.rpc("profile_stats", { p_user: profile.id }),
     user && !isMe
       ? supabase.from("follows").select("followee_id").eq("follower_id", user.id).eq("followee_id", profile.id).maybeSingle()
       : Promise.resolve({ data: null }),
     user && !isMe
+      ? supabase.from("follows").select("followee_id").eq("follower_id", profile.id).eq("followee_id", user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    user && !isMe
       ? supabase.from("blocks").select("blocked_id").eq("blocker_id", user.id).eq("blocked_id", profile.id).maybeSingle()
       : Promise.resolve({ data: null }),
+    // Their public dreams' moods and tags: used for the banner colour and the "dreams about" chips.
+    supabase.from("public_dreams").select("mood, tags").eq("author_id", profile.id).limit(100),
   ]);
   const stats = (statsRes.data ?? {
     dreams: 0, comments: 0, reactions_received: 0, reactions_given: 0,
     best_dream_reactions: 0, recurring_dreams: 0, followers: 0, following: 0,
   }) as ProfileStats;
   const badges = earnedBadges(stats);
-  const streak = isMe ? ((await supabase.rpc("my_streak")).data as Streak | null) : null;
   const following = Boolean(followRes.data);
+  const followsYou = Boolean(followsYouRes.data);
   const blocked = Boolean(blockRes.data);
+  const streak = isMe ? ((await supabase.rpc("my_streak")).data as Streak | null) : null;
+
+  // Banner colour = their most common mood; chips = their most used tags.
+  const about = (aboutRes.data ?? []) as Array<{ mood: string | null; tags: string[] }>;
+  const moodCount = new Map<string, number>();
+  const tagCount = new Map<string, number>();
+  about.forEach((d) => {
+    if (d.mood) moodCount.set(d.mood, (moodCount.get(d.mood) ?? 0) + 1);
+    d.tags.filter((t) => t !== "dream-of-the-day").forEach((t) => tagCount.set(t, (tagCount.get(t) ?? 0) + 1));
+  });
+  const topMood = [...moodCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const tint = MOODS.find((m) => m.value === topMood)?.color ?? DEFAULT_MOOD_COLOR;
+  const topTags = [...tagCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t);
 
   // Load whichever tab is open.
   let dreams: DreamRow[] = [];
@@ -100,82 +121,97 @@ export default async function ProfilePage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      <header className="card flex flex-col gap-5 p-6 sm:flex-row sm:items-start sm:p-8">
-        {profile.avatar_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={profile.avatar_url} alt="" className="h-20 w-20 shrink-0 rounded-full object-cover" />
-        ) : (
-          <div aria-hidden className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-violet-deep font-display text-3xl uppercase">
-            {profile.username[0]}
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-3xl">@{profile.username}</h1>
-          <p className="mt-1 text-sm text-mist">
-            Joined {formatDate(profile.created_at)} · {stats.followers} {stats.followers === 1 ? "follower" : "followers"} · {stats.following} following
-          </p>
-          {profile.bio && <p className="mt-3 max-w-prose leading-relaxed">{profile.bio}</p>}
-          {badges.length > 0 && (
-            <ul className="mt-4 flex flex-wrap gap-2" aria-label="Badges">
-              {badges.map((b) => (
-                <li key={b.id} title={b.description} className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs text-mist">
-                  <span aria-hidden>{b.emoji}</span> {b.name}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div className="flex gap-2 sm:flex-col">
-          {isMe ? (
-            <>
-              <Link href="/settings" className="btn-ghost !py-1.5">Settings</Link>
-              <form action={logout}>
-                <button className="btn-ghost !py-1.5 w-full">Log out</button>
-              </form>
-            </>
-          ) : blocked ? (
-            <form action={unblockUser}>
-              <input type="hidden" name="blocked_id" value={profile.id} />
-              <input type="hidden" name="back" value={`/u/${profile.username}`} />
-              <button className="btn-ghost !py-1.5">Unblock</button>
-            </form>
-          ) : (
-            <>
-              {user ? (
-                <FollowButton userId={profile.id} username={profile.username} following={following} />
-              ) : (
-                <Link href={`/login?next=/u/${profile.username}`} className="btn-primary !py-1.5">Follow</Link>
-              )}
-              {user && (
-                <details className="relative text-sm">
-                  <summary className="btn-ghost !py-1.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">More</summary>
-                  <form action={blockUser} className="card absolute right-0 z-20 mt-2 w-64 space-y-3 p-4 shadow-xl">
-                    <p className="text-mist">You won&apos;t see their named dreams or comments, and they can&apos;t notify you.</p>
-                    <input type="hidden" name="blocked_id" value={profile.id} />
-                    <input type="hidden" name="username" value={profile.username} />
-                    <button className="btn-danger w-full !py-1.5">Block @{profile.username}</button>
+      <header className="overflow-hidden rounded-[2rem] border border-line">
+        {/* Banner, tinted by the mood they dream in most */}
+        <div
+          aria-hidden
+          className="h-28 sm:h-36"
+          style={{
+            background: `radial-gradient(70% 120% at 15% 0%, color-mix(in oklab, ${tint} 55%, transparent), transparent 70%), radial-gradient(60% 100% at 100% 100%, rgb(255 181 158 / 0.25), transparent 70%), linear-gradient(135deg, #1b1850, #0f1230)`,
+          }}
+        />
+        <div className="px-6 pb-7 sm:px-8">
+          <div className="-mt-12 flex items-end justify-between gap-4">
+            <Avatar url={profile.avatar_url} name={profile.username} className="h-24 w-24 text-5xl ring-4 ring-night" />
+            <div className="flex flex-wrap items-center justify-end gap-2 pb-1">
+              {isMe ? (
+                <>
+                  <Link href="/settings" className="btn-ghost !py-2">Edit profile</Link>
+                  <form action={logout}>
+                    <button className="btn-ghost !py-2">Log out</button>
                   </form>
-                </details>
+                </>
+              ) : blocked ? (
+                <form action={unblockUser}>
+                  <input type="hidden" name="blocked_id" value={profile.id} />
+                  <input type="hidden" name="back" value={`/u/${profile.username}`} />
+                  <button className="btn-ghost !py-2">Unblock</button>
+                </form>
+              ) : (
+                <>
+                  {user ? (
+                    <FollowButton userId={profile.id} username={profile.username} following={following} />
+                  ) : (
+                    <Link href={`/login?next=/u/${profile.username}`} className="btn-primary !py-2">Follow</Link>
+                  )}
+                  {user && (
+                    <details className="relative text-sm">
+                      <summary className="btn-ghost !py-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden" aria-label="More options">•••</summary>
+                      <form action={blockUser} className="card absolute right-0 z-20 mt-2 w-64 space-y-3 bg-dusk p-4 shadow-xl">
+                        <p className="text-mist">You won&apos;t see their named dreams or comments, and they can&apos;t notify you.</p>
+                        <input type="hidden" name="blocked_id" value={profile.id} />
+                        <input type="hidden" name="username" value={profile.username} />
+                        <button className="btn-danger w-full !py-1.5">Block @{profile.username}</button>
+                      </form>
+                    </details>
+                  )}
+                </>
               )}
-            </>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <h1 className="font-display">@{profile.username}</h1>
+            {followsYou && <span className="chip !cursor-default">Follows you</span>}
+          </div>
+          {profile.bio ? (
+            <p className="mt-2 max-w-prose leading-relaxed text-moon/90">{profile.bio}</p>
+          ) : isMe ? (
+            <Link href="/settings" className="mt-2 inline-block text-sm text-violet hover:underline">Add a short bio</Link>
+          ) : null}
+
+          <div className="mt-5 flex flex-wrap gap-x-7 gap-y-2 text-sm">
+            <span><strong className="font-display text-xl text-moon">{stats.dreams}</strong> <span className="text-mist">public {stats.dreams === 1 ? "dream" : "dreams"}</span></span>
+            <Link href={`/u/${profile.username}/followers`} className="hover:text-moon"><strong className="font-display text-xl text-moon">{stats.followers}</strong> <span className="text-mist">{stats.followers === 1 ? "follower" : "followers"}</span></Link>
+            <Link href={`/u/${profile.username}/following`} className="hover:text-moon"><strong className="font-display text-xl text-moon">{stats.following}</strong> <span className="text-mist">following</span></Link>
+            <span><strong className="font-display text-xl text-moon">{stats.reactions_received}</strong> <span className="text-mist">reactions</span></span>
+          </div>
+
+          {(topTags.length > 0 || badges.length > 0) && (
+            <div className="mt-5 space-y-3">
+              {topTags.length > 0 && (
+                <p className="flex flex-wrap items-center gap-1.5 text-sm text-mist">
+                  Dreams about
+                  {topTags.map((t) => (
+                    <Link key={t} href={`/search?tag=${t}`} className="chip">#{t}</Link>
+                  ))}
+                </p>
+              )}
+              {badges.length > 0 && (
+                <ul className="flex flex-wrap gap-2" aria-label="Badges">
+                  {badges.map((b) => (
+                    <li key={b.id} title={b.description} className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs text-mist">
+                      <span aria-hidden>{b.emoji}</span> {b.name}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
         </div>
       </header>
 
       {streak && <StreakCard streak={streak} />}
-
-      <dl className="grid grid-cols-3 gap-3 text-center">
-        {[
-          ["Public dreams", stats.dreams],
-          ["Comments", stats.comments],
-          ["Reactions received", stats.reactions_received],
-        ].map(([label, value]) => (
-          <div key={label as string} className="card px-3 py-4">
-            <dd className="font-display text-2xl">{value}</dd>
-            <dt className="mt-0.5 text-xs text-mist">{label}</dt>
-          </div>
-        ))}
-      </dl>
 
       <section aria-label="Profile content">
         <nav className="mb-5 flex gap-2 overflow-x-auto" aria-label="Profile tabs">
@@ -188,6 +224,7 @@ export default async function ProfilePage({
                 "rounded-full border px-4 py-1.5 text-sm transition-colors",
                 tab === t.key ? "border-violet bg-violet/15 text-moon" : "border-line text-mist hover:text-moon"
               )}
+              style={tab === t.key ? ({ borderColor: tint } as CSSProperties) : undefined}
             >
               {t.label}
             </Link>
@@ -202,11 +239,11 @@ export default async function ProfilePage({
           commentRows.length === 0 ? (
             <EmptyState title="No public comments yet" />
           ) : (
-            <ul className="space-y-3">
+            <ul className="divide-y divide-line border-y border-line">
               {commentRows.map((c) => (
                 <li key={c.id}>
-                  <Link href={`/dreams/${c.dream_slug}#c-${c.id}`} className="card card-link block px-5 py-4">
-                    <span className="text-xs text-mist">On “{c.dream_title}” · {timeAgo(c.created_at)}</span>
+                  <Link href={`/dreams/${c.dream_slug}#c-${c.id}`} className="block py-4 transition-colors hover:text-moon">
+                    <span className="text-xs text-mist">On “{c.dream_title}”, {timeAgo(c.created_at)}</span>
                     <span className="mt-1 block leading-relaxed">{excerpt(c.body, 200)}</span>
                   </Link>
                 </li>
@@ -215,13 +252,10 @@ export default async function ProfilePage({
           )
         ) : dreams.length === 0 ? (
           <EmptyState
-            title={
-              tab === "saved" ? "Nothing saved yet" : tab === "liked" ? "No reactions yet" : isMe ? "Your journal is empty" : "No public dreams yet"
-            }
+            title={tab === "saved" ? "Nothing saved yet" : tab === "liked" ? "No reactions yet" : isMe ? "Your journal is empty" : "No public dreams yet"}
           >
-            {isMe && tab === "dreams" && (
-              <Link href="/dreams/new" className="btn-primary mt-2">Share your first dream</Link>
-            )}
+            {isMe && tab === "dreams" && <Link href="/dreams/new" className="btn-primary mt-2">Share your first dream</Link>}
+            {!isMe && tab === "dreams" && <p>Joined {formatDate(profile.created_at)}.</p>}
           </EmptyState>
         ) : (
           <div className="space-y-4">

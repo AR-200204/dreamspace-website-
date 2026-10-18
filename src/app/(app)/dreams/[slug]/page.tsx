@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Eye, Lock, Moon, Pencil, Sparkles, Trash2 } from "lucide-react";
 import { addComment, askAboutDream, deleteDream, exploreMeanings, react } from "@/app/actions";
-import { SaveButton } from "@/components/ActionButtons";
+import { FollowButton, SaveButton } from "@/components/ActionButtons";
 import { AI_DAILY_LIMIT, AI_DISCLAIMER, aiConfigured } from "@/lib/ai";
 import { createClient } from "@/lib/supabase/server";
 import { CommentThread } from "@/components/CommentThread";
@@ -20,6 +20,12 @@ const CRISIS_TAGS = ["self-harm", "selfharm", "suicide", "suicidal"];
 const AI_MESSAGES: Record<string, string> = {
   unavailable: "AI interpretation isn't available right now.",
   limit: `You've reached today's limit of ${AI_DAILY_LIMIT} AI requests. Try again tomorrow.`,
+  busy: "AI interpretations are very popular today and have reached the daily limit. Please try again tomorrow.",
+  auth: "AI is temporarily unavailable. Please try again later.",
+  credits: "AI is temporarily unavailable. Please try again later.",
+  policy: "AI is temporarily unavailable. Please try again later.",
+  ratelimit: "The AI service is busy right now. Please try again in a minute.",
+  empty: "The AI didn't manage to answer that time. Please try again.",
   error: "The AI service didn't respond. Please try again in a moment.",
   short: "Please write a slightly longer question.",
 };
@@ -32,6 +38,9 @@ async function loadDream(slug: string) {
   const { data: mine } = await supabase.from("my_dreams").select("*").eq("slug", slug).maybeSingle();
   return { supabase, dream: (mine as DreamRow | null) ?? null };
 }
+
+// AI replies can take a while, so allow up to 60 seconds for the actions on this page.
+export const maxDuration = 60;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -53,10 +62,10 @@ export default async function DreamPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ reported?: string; ai?: string; cerr?: string }>;
+  searchParams: Promise<{ reported?: string; ai?: string; cerr?: string; detail?: string }>;
 }) {
   const { slug } = await params;
-  const { reported, ai, cerr } = await searchParams;
+  const { reported, ai, cerr, detail } = await searchParams;
   const { supabase, dream } = await loadDream(slug);
   if (!dream) notFound();
 
@@ -94,6 +103,11 @@ export default async function DreamPage({
       : Promise.resolve({ data: [] }),
   ]);
   const saved = Boolean(savedRow.data);
+  let followingAuthor = false;
+  if (user && dream.visibility === "public" && dream.author_id && !isOwner) {
+    const { data: f } = await supabase.from("follows").select("followee_id").eq("follower_id", user.id).eq("followee_id", dream.author_id).maybeSingle();
+    followingAuthor = Boolean(f);
+  }
   const showAi = isShared && (aiConfigured() || Boolean(aiSummary.data));
 
   // Owner only: how this dream connects to the rest of their journal.
@@ -152,6 +166,9 @@ export default async function DreamPage({
               <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-full bg-white/6 text-mist"><Moon size={15} /></span>
               {authorLine}
             </span>
+          )}
+          {dream.visibility === "public" && dream.author_id && dream.author_username && !isOwner && (
+            <FollowButton userId={dream.author_id} username={dream.author_username} following={followingAuthor} />
           )}
           <span>Dreamed {formatDate(dream.dream_date)}</span>
           {mood && (
@@ -277,7 +294,10 @@ export default async function DreamPage({
             <Sparkles size={20} className="text-violet" aria-hidden /> Possible meanings
           </h2>
           {ai && AI_MESSAGES[ai] && (
-            <p role="status" className="mt-4 rounded-xl border border-violet/30 bg-violet/10 px-4 py-3 text-sm">{AI_MESSAGES[ai]}</p>
+            <p role="status" className="mt-4 rounded-xl border border-violet/30 bg-violet/10 px-4 py-3 text-sm">
+              {AI_MESSAGES[ai]}
+              {process.env.AI_DEBUG === "1" && detail && <code className="mt-2 block break-words text-xs text-mist">AI_DEBUG: {detail}</code>}
+            </p>
           )}
 
           {aiSummary.data ? (

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Bookmark, ChartColumn, Compass, Flame, Home, LogIn, PenLine, Search, Shield, User } from "lucide-react";
+import { Bell, Bookmark, ChartColumn, Compass, Flame, Home, LogIn, PenLine, Search, Shield, User, Users } from "lucide-react";
 import { Logo } from "./Logo";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +21,7 @@ export function AppNav({ username, unread, isAdmin }: { username: string | null;
     { href: "/explore", label: "Explore", icon: Compass },
     { href: "/trending", label: "Trending", icon: Flame },
     { href: "/search", label: "Search", icon: Search },
+    { href: "/people", label: "People", icon: Users },
     ...(username
       ? [
           { href: "/insights", label: "Insights", icon: ChartColumn },
@@ -43,13 +44,13 @@ export function AppNav({ username, unread, isAdmin }: { username: string | null;
 
   const topIcons: Item[] = [
     { href: "/search", label: "Search", icon: Search },
-    { href: "/explore", label: "Explore", icon: Compass },
+    { href: "/people", label: "People", icon: Users },
     ...(username
       ? [
           { href: "/insights", label: "Insights", icon: ChartColumn },
           { href: "/saved", label: "Saved", icon: Bookmark },
         ]
-      : []),
+      : [{ href: "/explore", label: "Explore", icon: Compass }]),
   ];
 
   return (

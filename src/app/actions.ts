@@ -3,10 +3,10 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createClient as createAdminClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { safeNext, storageUrl } from "@/lib/utils";
-import { AI_DAILY_LIMIT, aiConfigured, answerDreamQuestion, interpretDream, reflectOnPatterns } from "@/lib/ai";
+import { AIError, AI_DAILY_LIMIT, aiConfigured, aiSiteDailyLimit, answerDreamQuestion, interpretDream, reflectOnPatterns } from "@/lib/ai";
 import { analyzeDreams, summaryForAi, type PatternDream } from "@/lib/patterns";
 
 const enc = encodeURIComponent;
@@ -373,9 +373,33 @@ export async function updateAvatar(formData: FormData) {
 
 /* ------------------------------ AI interpretation ------------------------------ */
 
+// Logs the real reason to your terminal, and returns the short code the page uses for a friendly message.
+function aiErrorInfo(e: unknown) {
+  const message = e instanceof Error ? e.message : String(e);
+  console.error("[AI error]", message);
+  return { code: e instanceof AIError ? e.code : "error", message };
+}
+
+// Only shown when AI_DEBUG=1, so you can see what really went wrong while testing.
+function debugSuffix(detail?: string) {
+  return process.env.AI_DEBUG === "1" && detail ? `&detail=${enc(detail.slice(0, 300))}` : "";
+}
+
+// How many AI requests the whole site has made since midnight (UTC).
+async function aiRequestsToday(admin: SupabaseClient) {
+  const midnight = new Date();
+  midnight.setUTCHours(0, 0, 0, 0);
+  const since = midnight.toISOString();
+  const [a, b] = await Promise.all([
+    admin.from("ai_interpretations").select("id", { count: "exact", head: true }).gte("created_at", since),
+    admin.from("ai_pattern_reports").select("id", { count: "exact", head: true }).gte("created_at", since),
+  ]);
+  return (a.count ?? 0) + (b.count ?? 0);
+}
+
 async function aiSetup(formData: FormData) {
   const slug = str(formData.get("slug"));
-  const back = (code: string) => redirect(`/dreams/${slug}?ai=${code}#meanings`);
+  const back = (code: string, detail?: string) => redirect(`/dreams/${slug}?ai=${code}${debugSuffix(detail)}#meanings`);
 
   const supabase = await createClient();
   const {
@@ -396,6 +420,7 @@ async function aiSetup(formData: FormData) {
     .eq("user_id", user.id)
     .gte("created_at", since);
   if ((count ?? 0) >= AI_DAILY_LIMIT) back("limit");
+  if ((await aiRequestsToday(admin)) >= aiSiteDailyLimit()) back("busy");
 
   return { slug, user, dream, admin, back };
 }
@@ -414,8 +439,9 @@ export async function exploreMeanings(formData: FormData) {
   let answer = "";
   try {
     answer = await interpretDream(dream);
-  } catch {
-    back("error");
+  } catch (e) {
+    const info = aiErrorInfo(e);
+    back(info.code, info.message);
   }
   if (!answer) back("error");
 
@@ -432,8 +458,9 @@ export async function askAboutDream(formData: FormData) {
   let answer = "";
   try {
     answer = await answerDreamQuestion(dream, question);
-  } catch {
-    back("error");
+  } catch (e) {
+    const info = aiErrorInfo(e);
+    back(info.code, info.message);
   }
   if (!answer) back("error");
 
@@ -478,7 +505,7 @@ export async function adminDeleteTag(formData: FormData) {
 /* ------------------------------ AI pattern report (your whole journal) ------------------------------ */
 
 export async function generatePatternReport(formData: FormData) {
-  const back = (code: string) => redirect(`/insights?ai=${code}#report`);
+  const back = (code: string, detail?: string) => redirect(`/insights?ai=${code}${debugSuffix(detail)}#report`);
   const supabase = await createClient();
   const {
     data: { user },
@@ -497,6 +524,7 @@ export async function generatePatternReport(formData: FormData) {
     .eq("user_id", user.id)
     .gte("created_at", since);
   if ((count ?? 0) >= 1) back("limit");
+  if ((await aiRequestsToday(admin)) >= aiSiteDailyLimit()) back("busy");
 
   const { data } = await supabase
     .from("my_dreams")
@@ -511,12 +539,32 @@ export async function generatePatternReport(formData: FormData) {
   let answer = "";
   try {
     answer = await reflectOnPatterns(summaryForAi(dreams, analyzeDreams(dreams)));
-  } catch {
-    back("error");
+  } catch (e) {
+    const info = aiErrorInfo(e);
+    back(info.code, info.message);
   }
   if (!answer) back("error");
 
   await admin.from("ai_pattern_reports").insert({ user_id: user.id, answer, dream_count: dreams.length });
   revalidatePath("/insights");
   back("ok");
+}
+
+export async function updateUsername(formData: FormData) {
+  const username = str(formData.get("username"));
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username))
+    redirect(`/settings?error=${enc("Username must be 3–20 letters, numbers or underscores.")}`);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/settings");
+
+  const { error } = await supabase.from("profiles").update({ username }).eq("id", user.id);
+  if (error) {
+    const friendly = error.code === "23505" ? "That username is already taken." : error.message;
+    redirect(`/settings?error=${enc(friendly)}`);
+  }
+  revalidatePath("/", "layout");
+  redirect(`/settings?message=${enc(`Your username is now @${username}.`)}`);
 }
