@@ -8,6 +8,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { REPORT_REASONS } from "@/lib/moods";
 import { cn, excerpt, formatDate, timeAgo } from "@/lib/utils";
+import { Theme } from "@/components/Theme";
 
 export const metadata: Metadata = { title: "Admin", robots: { index: false, follow: false } };
 
@@ -77,6 +78,7 @@ export default async function AdminPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      <Theme name="slate" />
       <h1 className="font-display text-3xl">Admin</h1>
       {sp.error && <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">{sp.error}</p>}
 

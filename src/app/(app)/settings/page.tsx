@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { deleteAccount, unblockUser, updateAvatar, updateBio, updateUsername } from "@/app/actions";
+import { deleteAccount, unblockUser, updateAvatar, updateBio, updateDefaultVisibility, updateUsername, withdrawAiConsent } from "@/app/actions";
+import Link from "next/link";
+import { aiConfigured } from "@/lib/ai";
+import { hasAiConsent } from "@/lib/data";
+import { formatDate } from "@/lib/utils";
 import { ImageUpload } from "@/components/ImageUpload";
 import { InstallButton } from "@/components/InstallButton";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/data";
+import { Theme } from "@/components/Theme";
 
 export const metadata: Metadata = { title: "Settings", robots: { index: false } };
 
@@ -18,6 +23,9 @@ export default async function SettingsPage({
   const { profile } = await getCurrentProfile(supabase);
   if (!profile) redirect("/login?next=/settings");
 
+  const aiOn = aiConfigured();
+  const aiAgreed = aiOn ? await hasAiConsent(supabase, profile.id) : false;
+
   const { data: blockRows } = await supabase.from("blocks").select("blocked_id");
   const blockedIds = (blockRows ?? []).map((b) => b.blocked_id as string);
   const { data: blocked } = blockedIds.length
@@ -26,6 +34,7 @@ export default async function SettingsPage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-10">
+      <Theme name="slate" />
       <h1 className="font-display text-3xl">Settings</h1>
       {error && <p role="alert" className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">{error}</p>}
       {message && <p role="status" className="rounded-xl border border-violet/30 bg-violet/10 px-4 py-3 text-sm">{message}</p>}
@@ -40,6 +49,23 @@ export default async function SettingsPage({
         <h2 className="font-display text-xl">Profile photo</h2>
         <ImageUpload bucket="avatars" name="avatar_url" initialUrl={profile.avatar_url} maxSide={400} label="Photo" round />
         <button className="btn-primary">Save photo</button>
+      </form>
+
+      <form action={updateDefaultVisibility} className="card space-y-4 p-6">
+        <h2 className="font-display text-xl">Sharing</h2>
+        <div>
+          <label className="label" htmlFor="default_visibility">When I write a dream, start with</label>
+          <select id="default_visibility" name="default_visibility" defaultValue={profile.default_visibility ?? "anonymous"} className="input">
+            <option value="anonymous">Anonymous (your username is hidden)</option>
+            <option value="public">With my username</option>
+            <option value="private">Only me (private)</option>
+          </select>
+          <p className="mt-1.5 text-xs text-mist/80">You can still change this on every dream.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-4">
+          <button className="btn-primary">Save</button>
+          <Link href="/welcome" className="text-sm text-violet hover:underline">Replay the welcome tour</Link>
+        </div>
       </form>
 
       <form action={updateUsername} className="card space-y-4 p-6">
@@ -60,6 +86,24 @@ export default async function SettingsPage({
         </div>
         <button className="btn-primary">Save bio</button>
       </form>
+
+      {aiOn && (
+        <section className="card space-y-3 p-6">
+          <h2 className="font-display text-xl">AI features</h2>
+          {aiAgreed ? (
+            <>
+              <p className="text-mist">
+                You&apos;ve agreed to use AI features{profile.ai_consent_at ? ` (${formatDate(profile.ai_consent_at)})` : ""}. Text you choose is sent to an AI service.
+              </p>
+              <form action={withdrawAiConsent}>
+                <button className="btn-ghost">Withdraw my agreement</button>
+              </form>
+            </>
+          ) : (
+            <p className="text-mist">Not switched on. You&apos;ll be asked to agree the first time you use an AI feature.</p>
+          )}
+        </section>
+      )}
 
       <section className="card space-y-4 p-6">
         <h2 className="font-display text-xl">Blocked users</h2>

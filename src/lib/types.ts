@@ -17,6 +17,7 @@ export interface DreamRow {
   reaction_count: number;
   comment_count: number;
   image_url: string | null;
+  allow_ai: boolean;
 }
 
 export interface CommentRow {
@@ -38,6 +39,9 @@ export interface Profile {
   avatar_url: string | null;
   bio: string | null;
   created_at: string;
+  onboarded_at?: string | null;
+  goals?: string[];
+  default_visibility?: Visibility;
 }
 
 export interface NotificationRow {

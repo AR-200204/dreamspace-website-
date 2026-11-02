@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { AI_CONSENT_VERSION } from "./ai";
 
 // Today's "Dream of the Day" question. Rotates daily through the prompts table.
 export async function getTodayPrompt(supabase: SupabaseClient) {
@@ -29,4 +30,11 @@ export async function getFollowingSet(supabase: SupabaseClient, userId: string |
   if (!userId || personIds.length === 0) return new Set<string>();
   const { data } = await supabase.from("follows").select("followee_id").eq("follower_id", userId).in("followee_id", personIds);
   return new Set((data ?? []).map((r) => r.followee_id as string));
+}
+
+// Has this person agreed (in the current wording) to use AI features?
+export async function hasAiConsent(supabase: SupabaseClient, userId: string | null | undefined) {
+  if (!userId) return false;
+  const { data } = await supabase.from("profiles").select("ai_consent_at, ai_consent_version").eq("id", userId).maybeSingle();
+  return Boolean(data?.ai_consent_at) && (data?.ai_consent_version ?? 0) >= AI_CONSENT_VERSION;
 }

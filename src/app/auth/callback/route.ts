@@ -11,7 +11,20 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(`${origin}${next}`);
+    if (!error) {
+      // First time here? Start with the welcome tour (unless they were heading somewhere specific).
+      let target = next;
+      if (next === "/feed") {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase.from("profiles").select("onboarded_at").eq("id", user.id).maybeSingle();
+          if (profile && !profile.onboarded_at) target = "/welcome";
+        }
+      }
+      return NextResponse.redirect(`${origin}${target}`);
+    }
   }
   return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent("That link is invalid or has expired.")}`);
 }

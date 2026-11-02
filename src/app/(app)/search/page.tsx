@@ -9,6 +9,7 @@ import { MOODS } from "@/lib/moods";
 import { PAGE_SIZE } from "@/lib/config";
 import { cleanSearch } from "@/lib/utils";
 import type { DreamRow } from "@/lib/types";
+import { Theme } from "@/components/Theme";
 
 export const metadata: Metadata = { title: "Search dreams" };
 
@@ -56,6 +57,7 @@ export default async function SearchPage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      <Theme name="slate" />
       <div className="flex items-baseline justify-between gap-3">
         <h1 className="font-display">Search dreams</h1>
         <Link href="/explore" className="text-sm text-violet hover:underline">Browse themes and moods</Link>

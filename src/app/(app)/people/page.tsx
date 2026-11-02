@@ -6,6 +6,7 @@ import { getCurrentProfile, getFollowingSet } from "@/lib/data";
 import { EmptyState } from "@/components/DreamCard";
 import { PersonList, type Person } from "@/components/PersonCard";
 import { cleanSearch } from "@/lib/utils";
+import { Theme } from "@/components/Theme";
 
 export const metadata: Metadata = { title: "Find dreamers" };
 
@@ -29,6 +30,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="mx-auto max-w-2xl space-y-10">
+      <Theme name="twilight" />
       <header>
         <h1 className="font-display">Find dreamers</h1>
         <p className="mt-2 text-mist">Follow people to see their named dreams in your Following feed.</p>

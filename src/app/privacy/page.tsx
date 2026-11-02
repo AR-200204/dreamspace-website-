@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/LegalPage";
 import { SITE } from "@/lib/config";
+import { aiMayTrain } from "@/lib/ai";
 
 export const metadata: Metadata = { title: "Privacy Policy" };
 
@@ -40,9 +41,29 @@ export default function PrivacyPage() {
           <li>Vercel: website hosting.</li>
           <li>Cloudflare Turnstile (if switched on): checks that sign-ups come from people, not bots.</li>
           <li>An email service: sends confirmation and password-reset emails.</li>
-          <li>An AI provider (only if the AI feature is switched on): when someone asks for possible meanings, the text of that <em>shared</em> dream and any question they type are sent to the provider to generate a reply. Private dreams are never sent.</li>
+          <li>An AI provider (only if the AI feature is switched on): see &ldquo;AI features&rdquo; below.</li>
         </ul>
         <p>We do not sell your data and we do not show ads.</p>
+      </section>
+
+      <section>
+        <h2>AI features</h2>
+        <p>
+          AI features are optional. Nothing is sent to an AI service unless you have clicked to agree to the AI terms, and a dream is only ever sent
+          if its author turned on &ldquo;Allow AI interpretation&rdquo; for that dream. Private dreams can never be sent, and we never send usernames or email addresses.
+        </p>
+        <p>
+          What is sent: the dream text and title (or, for a pattern report, excerpts of your own recent dreams), plus any question you type. It goes to OpenRouter
+          and to the company that runs the AI model.{" "}
+          {aiMayTrain()
+            ? "We use free AI models. The companies behind free models may keep what they receive and use it to improve their models, and we cannot delete it from their systems."
+            : "That service handles the text under its own privacy terms, and we cannot delete it from their systems."}{" "}
+          Please leave out real names and other private details.
+        </p>
+        <p>
+          AI text made from a dream is stored with that dream and deleted if the author turns AI off, makes the dream private, or deletes it. You can withdraw your agreement
+          in Settings at any time.
+        </p>
       </section>
 
       <section>

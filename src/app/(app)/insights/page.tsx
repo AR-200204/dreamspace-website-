@@ -5,10 +5,14 @@ import { BookOpen, Sparkles } from "lucide-react";
 import { generatePatternReport } from "@/app/actions";
 import { aiConfigured, AI_DISCLAIMER } from "@/lib/ai";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/data";
+import { getCurrentProfile, hasAiConsent } from "@/lib/data";
+import { AiConsentCard } from "@/components/AiConsentCard";
 import { getMood } from "@/lib/moods";
 import { analyzeDreams, toneShift, THEMES, type PatternDream, type ThemeGroup } from "@/lib/patterns";
 import { formatDate } from "@/lib/utils";
+import { CountUp } from "@/components/CountUp";
+import { themeIcon } from "@/lib/icons";
+import { Theme } from "@/components/Theme";
 
 // AI replies can take a while, so allow up to 60 seconds for the actions on this page.
 export const maxDuration = 60;
@@ -19,7 +23,8 @@ const GROUPS: ThemeGroup[] = ["Situations", "People", "Places", "Creatures & ele
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const AI_MESSAGES: Record<string, string> = {
   unavailable: "The AI report isn't available right now.",
-  consent: "Please tick the box to confirm you're happy for your dream text to be sent to the AI service.",
+  agree: "Please tick the box to agree before using AI features.",
+  consent: "Please agree to the AI terms below to use this feature.",
   limit: "You've already created a report in the last 24 hours. Try again tomorrow.",
   few: "You need at least 3 dreams (that match your choices above) to create a report.",
   busy: "AI reports are very popular today and have reached the daily limit. Please try again tomorrow.",
@@ -31,11 +36,11 @@ const AI_MESSAGES: Record<string, string> = {
   error: "The AI service didn't respond. Please try again in a moment.",
 };
 
-function Bar({ value, max, label }: { value: number; max: number; label: string }) {
+function Bar({ value, max, label, delay = 0 }: { value: number; max: number; label: string; delay?: number }) {
   const pct = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 0;
   return (
     <div className="h-1.5 w-full rounded-full bg-white/8" role="img" aria-label={label}>
-      <div className="h-1.5 rounded-full bg-gradient-to-r from-violet to-dawn" style={{ width: `${pct}%` }} />
+      <div className="grow-x h-1.5 rounded-full bg-gradient-to-r from-violet to-dawn" style={{ width: `${pct}%`, "--d": `${delay}ms` } as React.CSSProperties} />
     </div>
   );
 }
@@ -56,6 +61,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
   if (dreams.length < 3) {
     return (
       <div className="mx-auto max-w-2xl space-y-6">
+      <Theme name="observatory" />
         <h1 className="font-display text-3xl">Your dream patterns</h1>
         <div className="card px-6 py-10 text-center">
           <p className="font-display text-3xl">Patterns appear after a few dreams</p>
@@ -92,9 +98,11 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
     .limit(1)
     .maybeSingle();
   const aiOn = aiConfigured();
+  const consented = aiOn ? await hasAiConsent(supabase, user.id) : false;
 
   return (
     <div className="mx-auto max-w-2xl space-y-10">
+      <Theme name="observatory" />
       <header>
         <h1 className="font-display text-3xl">Your dream patterns</h1>
         <p className="mt-2 max-w-prose leading-relaxed text-mist">
@@ -105,12 +113,12 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
 
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          ["Dreams analysed", String(r.total)],
-          ["Recurring themes", String(recurringThemes)],
+          ["Dreams analysed", <CountUp key="a" value={r.total} />],
+          ["Recurring themes", <CountUp key="b" value={recurringThemes} />],
           ["Most common mood", r.moods[0] ? `${getMood(r.moods[0].mood)?.emoji ?? ""} ${getMood(r.moods[0].mood)?.label ?? r.moods[0].mood}` : "—"],
-          ["Top theme", topTheme ? `${topTheme.theme.emoji} ${topTheme.theme.label}` : "—"],
+          ["Top theme", topTheme ? topTheme.theme.label : "—"],
         ].map(([label, value]) => (
-          <div key={label} className="card px-4 py-4">
+          <div key={label as string} className="card px-4 py-4">
             <dd className="font-display text-[1.7rem] leading-tight">{value}</dd>
             <dt className="mt-1 text-xs text-mist">{label}</dt>
           </div>
@@ -137,12 +145,14 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
                         <details>
                           <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                             <div className="flex items-center justify-between gap-3">
-                              <span className="font-medium"><span aria-hidden>{t.theme.emoji}</span> {t.theme.label}
+                              <span className="inline-flex items-center gap-2.5 font-medium">
+                                {(() => { const Icon = themeIcon(t.theme.id); return <Icon size={17} className="text-violet" aria-hidden />; })()}
+                                {t.theme.label}
                                 {t.count >= 3 && <span className="chip ml-2 !cursor-default">recurring</span>}
                               </span>
                               <span className="text-sm text-mist">{t.count} of {r.total}</span>
                             </div>
-                            <div className="mt-2"><Bar value={t.count} max={r.themes[0].count} label={`${t.count} of ${r.total} dreams`} /></div>
+                            <div className="mt-2"><Bar value={t.count} max={r.themes[0].count} label={`${t.count} of ${r.total} dreams`} delay={r.themes.indexOf(t) * 70} /></div>
                           </summary>
                           <ul className="mt-3 space-y-1 text-sm">
                             {t.dreams.slice(0, 8).map((d) => (
@@ -211,7 +221,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
             <div className="mt-4 flex h-28 items-end gap-2" role="img" aria-label="Dreams per week, split by harder and gentler moods">
               {r.weekly.map((w) => (
                 <div key={w.start} className="flex h-full flex-1 flex-col justify-end" title={`Week of ${formatDate(w.start)}: ${w.total} dreams, ${w.hard} with harder moods, ${w.gentle} with gentler moods`}>
-                  <div className="flex flex-col justify-end overflow-hidden rounded-t" style={{ height: `${Math.round((w.total / maxWeek) * 100)}%` }}>
+                  <div className="grow-y flex flex-col justify-end overflow-hidden rounded-t" style={{ height: `${Math.round((w.total / maxWeek) * 100)}%`, "--d": `${r.weekly.indexOf(w) * 60}ms` } as React.CSSProperties}>
                     <div className="bg-ember/70" style={{ flexGrow: w.hard }} />
                     <div className="bg-violet/40" style={{ flexGrow: Math.max(w.total - w.hard - w.gentle, 0) }} />
                     <div className="bg-violet" style={{ flexGrow: w.gentle }} />
@@ -239,7 +249,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
           {r.weekdays.map((n, i) => (
             <div key={DAYS[i]} className="flex flex-col items-center gap-2">
               <div className="flex h-20 w-full items-end">
-                <div className="w-full rounded-t bg-violet/70" style={{ height: `${Math.max((n / maxWeekday) * 100, n ? 6 : 2)}%` }} title={`${n} dreams`} />
+                <div className="grow-y w-full rounded-t bg-violet/70" style={{ height: `${Math.max((n / maxWeekday) * 100, n ? 6 : 2)}%`, "--d": `${i * 70}ms` } as React.CSSProperties} title={`${n} dreams`} />
               </div>
               <span className="text-xs text-mist">{DAYS[i]}</span>
               <span className="text-xs">{n}</span>
@@ -280,7 +290,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
           <ul className="mt-4 space-y-3">
             {r.themes.slice(0, 3).map((t) => (
               <li key={t.theme.id} className="card px-5 py-4">
-                <p className="font-medium"><span aria-hidden>{t.theme.emoji}</span> {t.theme.label}</p>
+                <p className="inline-flex items-center gap-2.5 font-medium">{(() => { const Icon = themeIcon(t.theme.id); return <Icon size={17} className="text-violet" aria-hidden />; })()}{t.theme.label}</p>
                 <p className="mt-1 leading-relaxed">{t.theme.question}</p>
                 <details className="mt-2 text-sm text-mist">
                   <summary className="cursor-pointer hover:text-moon">A popular reading</summary>
@@ -300,7 +310,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
             {communityCounts.filter((c) => c.count > 0).map((c) => (
               <li key={c.tag}>
                 <Link href={`/search?tag=${c.tag}`} className="card card-link block px-5 py-3">
-                  <span aria-hidden>{c.theme.emoji}</span> <span className="text-moon">{c.count}</span> {c.count === 1 ? "dream" : "dreams"} on DreamSpace are tagged <span className="text-violet">#{c.tag}</span>
+                  <span className="text-moon">{c.count}</span> {c.count === 1 ? "dream" : "dreams"} on DreamSpace are tagged <span className="text-violet">#{c.tag}</span>
                 </Link>
               </li>
             ))}
@@ -330,20 +340,20 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
         )}
 
         {aiOn ? (
-          <form action={generatePatternReport} className="card mt-4 space-y-3 p-5">
-            <p className="text-sm leading-relaxed text-mist">
-              An AI service reads excerpts of your recent dreams and writes a short reflection on the patterns. One report per day.
-            </p>
-            <label className="flex items-start gap-2.5 text-sm">
-              <input type="checkbox" name="consent" className="mt-1" />
-              <span>I understand that the text of my dreams will be sent to an AI service to create this report.</span>
-            </label>
-            <label className="flex items-start gap-2.5 text-sm text-mist">
-              <input type="checkbox" name="include_private" className="mt-1" />
-              <span>Also include my <strong className="text-moon">private</strong> dreams (anonymous ones are included by default; your username is never sent).</span>
-            </label>
-            <button className="btn-ghost">✨ {report ? "Create a new report" : "Create my pattern report"}</button>
-          </form>
+          !consented ? (
+            <AiConsentCard back="/insights" anchor="report" />
+          ) : (
+            <form action={generatePatternReport} className="card mt-4 space-y-3 p-5">
+              <p className="text-sm leading-relaxed text-mist">
+                An AI service reads excerpts of your recent dreams and writes a short reflection on the patterns. One report per day.
+              </p>
+              <label className="flex items-start gap-2.5 text-sm text-mist">
+                <input type="checkbox" name="include_private" className="mt-1" />
+                <span>Also include my <strong className="text-moon">private</strong> dreams (anonymous ones are included by default; your username is never sent).</span>
+              </label>
+              <button className="btn-ghost">✨ {report ? "Create a new report" : "Create my pattern report"}</button>
+            </form>
+          )
         ) : (
           !report && <p className="mt-3 text-sm text-mist">The AI report is switched off on this site. The patterns above work without it.</p>
         )}

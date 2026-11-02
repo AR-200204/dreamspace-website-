@@ -46,6 +46,16 @@ export default function TermsPage() {
       </section>
 
       <section>
+        <h2>AI features</h2>
+        <p>
+          AI features are optional and are only available after you agree to the AI terms. AI replies are suggestions for reflection, can be wrong or
+          unsuitable, and are never medical, psychological or professional advice. Don&apos;t include other people&apos;s private information when using them.
+          If you allow AI on one of your dreams, you agree that its text may be sent to an AI service for others to use the feature on it; you can turn that off at any time.
+          See the Privacy Policy for what happens to text sent to an AI service.
+        </p>
+      </section>
+
+      <section>
         <h2>Anonymous posts</h2>
         <p>
           Anonymous dreams don&apos;t show your username to other users. Our administrators can still see who posted for moderation and safety,

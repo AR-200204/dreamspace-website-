@@ -17,6 +17,14 @@ export const AI_DISCLAIMER =
 
 export const AI_DAILY_LIMIT = 5;
 
+// Bump this number if the wording people agree to ever changes materially: everyone is then asked again.
+export const AI_CONSENT_VERSION = 1;
+
+// True when prompts may be kept and used for training (free OpenRouter models with AI_PRIVACY=open).
+export function aiMayTrain() {
+  return (process.env.AI_PROVIDER ?? "gemini").toLowerCase() === "openrouter" && (process.env.AI_PRIVACY ?? "strict").toLowerCase() === "open";
+}
+
 // Free OpenRouter accounts only get ~50 free requests a day for the WHOLE site, so we stop a little below that.
 export function aiSiteDailyLimit() {
   const n = Number(process.env.AI_SITE_DAILY_LIMIT);

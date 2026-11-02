@@ -5,21 +5,23 @@ import { getCurrentProfile, getSavedSet } from "@/lib/data";
 import { DreamCard, EmptyState } from "@/components/DreamCard";
 import type { DreamRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Theme } from "@/components/Theme";
+import { Eye, Flame, Ghost, Heart, MessagesSquare, Repeat, Sparkles, type LucideIcon } from "lucide-react";
 import { daysAgoIso, rankByHeat } from "@/lib/trending";
 
 export const metadata: Metadata = { title: "Trending dreams" };
 
-const TABS = [
-  { key: "today", label: "🔥 Trending Today" },
-  { key: "discussed", label: "🌙 Most Discussed" },
-  { key: "loved", label: "❤️ Most Loved" },
-  { key: "viewed", label: "👁 Most Viewed" },
-  { key: "recurring", label: "🔁 Recurring Dreams" },
-  { key: "nightmares", label: "😱 Popular Nightmares" },
-  { key: "interesting", label: "✨ Interesting Dreams" },
-] as const;
+const TABS: ReadonlyArray<{ key: string; label: string; icon: LucideIcon }> = [
+  { key: "today", label: "Trending Today", icon: Flame },
+  { key: "discussed", label: "Most Discussed", icon: MessagesSquare },
+  { key: "loved", label: "Most Loved", icon: Heart },
+  { key: "viewed", label: "Most Viewed", icon: Eye },
+  { key: "recurring", label: "Recurring Dreams", icon: Repeat },
+  { key: "nightmares", label: "Popular Nightmares", icon: Ghost },
+  { key: "interesting", label: "Interesting Dreams", icon: Sparkles },
+];
 
-type TabKey = (typeof TABS)[number]["key"];
+type TabKey = "today" | "discussed" | "loved" | "viewed" | "recurring" | "nightmares" | "interesting";
 
 export default async function TrendingPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { tab: rawTab } = await searchParams;
@@ -58,9 +60,10 @@ export default async function TrendingPage({ searchParams }: { searchParams: Pro
   const saved = await getSavedSet(supabase, user?.id, dreams.map((d) => d.id));
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
+      <Theme name="ember" />
       <header>
-        <h1 className="font-display text-3xl">Trending</h1>
+        <h1 className="font-display">Trending</h1>
         <p className="mt-2 text-mist">What the community is dreaming and talking about.</p>
       </header>
 
@@ -71,10 +74,11 @@ export default async function TrendingPage({ searchParams }: { searchParams: Pro
             href={`/trending?tab=${t.key}`}
             aria-current={tab === t.key ? "page" : undefined}
             className={cn(
-              "shrink-0 rounded-full border px-4 py-1.5 text-sm transition-colors",
+              "inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-1.5 text-sm transition-colors",
               tab === t.key ? "border-violet bg-violet/15 text-moon" : "border-line text-mist hover:text-moon"
             )}
           >
+            <t.icon size={15} aria-hidden />
             {t.label}
           </Link>
         ))}
@@ -85,11 +89,21 @@ export default async function TrendingPage({ searchParams }: { searchParams: Pro
           <p>Share a dream and help get this page started.</p>
         </EmptyState>
       ) : (
-        <div className="space-y-4">
-          {dreams.map((d) => (
-            <DreamCard key={d.id} dream={d} saved={saved.has(d.id)} />
+        <ol className="space-y-5">
+          {dreams.map((d, i) => (
+            <li key={d.id} className="grid grid-cols-[auto_1fr] items-start gap-x-4 sm:gap-x-6">
+              {/* An editorial ranking numeral: outlined, so it frames the dream without competing with it. */}
+              <span
+                aria-label={`Number ${i + 1}`}
+                className="select-none pt-3 font-display text-[3.4rem] leading-none text-transparent sm:text-[5rem]"
+                style={{ WebkitTextStroke: "1px color-mix(in oklab, var(--accent) 55%, transparent)" }}
+              >
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <DreamCard dream={d} saved={saved.has(d.id)} />
+            </li>
           ))}
-        </div>
+        </ol>
       )}
     </div>
   );

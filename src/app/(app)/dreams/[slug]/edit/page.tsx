@@ -4,6 +4,7 @@ import { updateDream } from "@/app/actions";
 import { DreamForm } from "@/components/DreamForm";
 import { createClient } from "@/lib/supabase/server";
 import type { DreamRow } from "@/lib/types";
+import { Theme } from "@/components/Theme";
 
 export const metadata: Metadata = { title: "Edit dream", robots: { index: false } };
 
@@ -23,6 +24,7 @@ export default async function EditDreamPage({
 
   return (
     <div className="mx-auto max-w-2xl">
+      <Theme name="dawn" />
       <h1 className="font-display text-3xl">Edit your dream</h1>
       {error && (
         <p role="alert" className="mt-5 rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">

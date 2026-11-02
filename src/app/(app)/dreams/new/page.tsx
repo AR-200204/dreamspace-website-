@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { createDream } from "@/app/actions";
 import { DreamForm } from "@/components/DreamForm";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/data";
+import { Theme } from "@/components/Theme";
 
 export const metadata: Metadata = { title: "Share a dream" };
 
@@ -12,6 +14,8 @@ export default async function NewDreamPage({
 }) {
   const { error, prompt } = await searchParams;
   const supabase = await createClient();
+  const { profile } = await getCurrentProfile(supabase);
+  const goals = profile?.goals ?? [];
 
   let promptText: string | null = null;
   if (prompt && /^\d+$/.test(prompt)) {
@@ -21,6 +25,7 @@ export default async function NewDreamPage({
 
   return (
     <div className="mx-auto max-w-2xl">
+      <Theme name="dawn" />
       <h1 className="font-display text-3xl">What did you dream?</h1>
       <p className="mt-2 text-mist">Write it down before it fades. Only the title and story are required.</p>
 
@@ -36,7 +41,23 @@ export default async function NewDreamPage({
         </p>
       )}
 
-      <DreamForm action={createDream} defaultTags={promptText ? "dream-of-the-day" : ""} submitLabel="Publish dream" />
+      {goals.includes("lucid") && (
+        <p className="mt-5 text-sm leading-relaxed text-mist">
+          <span className="text-violet">Lucid tip:</span> did you realise you were dreaming at any point? Add the tag <span className="text-moon">lucid</span>, even for a brief moment.
+        </p>
+      )}
+      {goals.includes("remember") && !goals.includes("lucid") && (
+        <p className="mt-5 text-sm leading-relaxed text-mist">
+          <span className="text-violet">Tip:</span> a single image or feeling is enough. More comes back as you write.
+        </p>
+      )}
+
+      <DreamForm
+        action={createDream}
+        defaultTags={promptText ? "dream-of-the-day" : ""}
+        defaultVisibility={profile?.default_visibility ?? "anonymous"}
+        submitLabel="Publish dream"
+      />
     </div>
   );
 }

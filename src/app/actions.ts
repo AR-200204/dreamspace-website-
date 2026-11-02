@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { createClient as createAdminClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { safeNext, storageUrl } from "@/lib/utils";
-import { AIError, AI_DAILY_LIMIT, aiConfigured, aiSiteDailyLimit, answerDreamQuestion, interpretDream, reflectOnPatterns } from "@/lib/ai";
+import { AIError, AI_CONSENT_VERSION, AI_DAILY_LIMIT, aiConfigured, aiSiteDailyLimit, answerDreamQuestion, interpretDream, reflectOnPatterns } from "@/lib/ai";
 import { analyzeDreams, summaryForAi, type PatternDream } from "@/lib/patterns";
 
 const enc = encodeURIComponent;
@@ -22,6 +22,17 @@ async function origin() {
   const h = await headers();
   const proto = h.get("x-forwarded-proto") ?? "http";
   return `${proto}://${h.get("host")}`;
+}
+
+// New people go through the welcome tour first. Anyone heading somewhere specific is left alone.
+async function pathAfterSignIn(supabase: SupabaseClient, wanted: string) {
+  if (wanted !== "/feed") return wanted;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return wanted;
+  const { data } = await supabase.from("profiles").select("onboarded_at").eq("id", user.id).maybeSingle();
+  return data && !data.onboarded_at ? "/welcome" : wanted;
 }
 
 /* ------------------------------ Auth ------------------------------ */
@@ -43,7 +54,7 @@ export async function signup(formData: FormData) {
   });
   if (error) redirect(`/signup?error=${enc(error.message)}`);
   if (!data.session) redirect(`/login?message=${enc("Check your email to confirm your account, then log in.")}`);
-  redirect("/feed");
+  redirect("/welcome");
 }
 
 export async function login(formData: FormData) {
@@ -55,7 +66,7 @@ export async function login(formData: FormData) {
   });
   const next = safeNext(formData.get("next"));
   if (error) redirect(`/login?error=${enc(error.message)}&next=${enc(next)}`);
-  redirect(next);
+  redirect(await pathAfterSignIn(supabase, next));
 }
 
 export async function logout() {
@@ -107,6 +118,7 @@ export async function createDream(formData: FormData) {
     p_visibility: visibility,
     p_tags: tags,
     p_image_url: storageUrl(formData.get("image_url"), "dream-images") || null,
+    p_allow_ai: formData.get("allow_ai") === "on",
   });
 
   if (error) {
@@ -137,18 +149,25 @@ export async function addComment(formData: FormData) {
   if (!user) redirect(`/login?next=${enc(`/dreams/${slug}`)}`);
 
   const body = str(formData.get("body"));
+  let newId = "";
   if (body) {
-    const { error } = await supabase.from("comments").insert({
-      dream_id: str(formData.get("dream_id")),
-      user_id: user.id,
-      parent_id: str(formData.get("parent_id")) || null,
-      body,
-      is_interpretation: formData.get("kind") === "interpretation",
-    });
+    const { data, error } = await supabase
+      .from("comments")
+      .insert({
+        dream_id: str(formData.get("dream_id")),
+        user_id: user.id,
+        parent_id: str(formData.get("parent_id")) || null,
+        body,
+        is_interpretation: formData.get("kind") === "interpretation",
+      })
+      .select("id")
+      .single();
     if (error) redirect(`/dreams/${slug}?cerr=${enc(error.message)}#comments`);
+    newId = data?.id ?? "";
   }
   revalidatePath(`/dreams/${slug}`);
-  redirect(`/dreams/${slug}#comments`);
+  // Jump to the new comment (it is first in the list, and gets a short highlight).
+  redirect(`/dreams/${slug}#${newId ? `c-${newId}` : "comments"}`);
 }
 
 export async function deleteComment(formData: FormData) {
@@ -272,6 +291,7 @@ export async function updateDream(formData: FormData) {
     p_visibility: visibility,
     p_tags: str(formData.get("tags")).split(/[,\s#]+/).filter(Boolean),
     p_image_url: storageUrl(formData.get("image_url"), "dream-images") || null,
+    p_allow_ai: formData.get("allow_ai") === "on",
   });
   if (error) {
     const friendly = error.message.includes("check constraint")
@@ -397,6 +417,12 @@ async function aiRequestsToday(admin: SupabaseClient) {
   return (a.count ?? 0) + (b.count ?? 0);
 }
 
+// Nothing is ever sent to the AI unless the signed-in person has agreed to the current wording.
+async function requireAiConsent(supabase: SupabaseClient, userId: string, back: (code: string) => never) {
+  const { data } = await supabase.from("profiles").select("ai_consent_at, ai_consent_version").eq("id", userId).maybeSingle();
+  if (!data?.ai_consent_at || (data.ai_consent_version ?? 0) < AI_CONSENT_VERSION) back("consent");
+}
+
 async function aiSetup(formData: FormData) {
   const slug = str(formData.get("slug"));
   const back = (code: string, detail?: string) => redirect(`/dreams/${slug}?ai=${code}${debugSuffix(detail)}#meanings`);
@@ -407,10 +433,12 @@ async function aiSetup(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=${enc(`/dreams/${slug}`)}`);
   if (!aiConfigured()) back("unavailable");
+  await requireAiConsent(supabase, user.id, back);
 
-  // Only shared dreams are ever sent to the AI provider.
-  const { data: dream } = await supabase.from("public_dreams").select("id, title, body, tags, mood").eq("slug", slug).maybeSingle();
+  // Only shared dreams whose author turned on "Allow AI interpretation" are ever sent to the AI provider.
+  const { data: dream } = await supabase.from("public_dreams").select("id, title, body, tags, mood, allow_ai").eq("slug", slug).maybeSingle();
   if (!dream) redirect("/feed");
+  if (!dream.allow_ai) back("notallowed");
 
   const admin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
@@ -512,8 +540,7 @@ export async function generatePatternReport(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/insights");
   if (!aiConfigured()) back("unavailable");
-  // Nothing is sent to the AI provider unless the person ticks the consent box.
-  if (formData.get("consent") !== "on") back("consent");
+  await requireAiConsent(supabase, user.id, back);
   const includePrivate = formData.get("include_private") === "on";
 
   const admin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -567,4 +594,72 @@ export async function updateUsername(formData: FormData) {
   }
   revalidatePath("/", "layout");
   redirect(`/settings?message=${enc(`Your username is now @${username}.`)}`);
+}
+
+/* ------------------------------ AI consent ------------------------------ */
+
+export async function giveAiConsent(formData: FormData) {
+  const back = safeNext(formData.get("back"), "/insights");
+  const anchor = str(formData.get("anchor")).replace(/[^a-z-]/g, "");
+  const hash = anchor ? `#${anchor}` : "";
+  if (formData.get("agree") !== "on") redirect(`${back}?ai=agree${hash}`);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect(`/login?next=${enc(back)}`);
+  await supabase
+    .from("profiles")
+    .update({ ai_consent_at: new Date().toISOString(), ai_consent_version: AI_CONSENT_VERSION })
+    .eq("id", user.id);
+  revalidatePath("/", "layout");
+  redirect(`${back}${hash}`);
+}
+
+export async function withdrawAiConsent() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/settings");
+  await supabase.from("profiles").update({ ai_consent_at: null, ai_consent_version: null }).eq("id", user.id);
+  revalidatePath("/", "layout");
+  redirect(`/settings?message=${enc("AI features are switched off for your account. You'll be asked again if you use one.")}`);
+}
+
+/* ------------------------------ Onboarding ------------------------------ */
+
+const GOALS = ["remember", "lucid", "sleep", "share", "patterns"];
+
+export async function completeOnboarding(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/welcome");
+
+  const skipped = formData.get("skip") === "1";
+  const update: Record<string, unknown> = { onboarded_at: new Date().toISOString() };
+  if (!skipped) {
+    update.goals = formData.getAll("goal").map(String).filter((g) => GOALS.includes(g));
+    const vis = str(formData.get("default_visibility"));
+    update.default_visibility = ["public", "anonymous", "private"].includes(vis) ? vis : "anonymous";
+  }
+  await supabase.from("profiles").update(update).eq("id", user.id);
+  revalidatePath("/", "layout");
+  redirect(safeNext(formData.get("to"), "/feed"));
+}
+
+export async function updateDefaultVisibility(formData: FormData) {
+  const vis = str(formData.get("default_visibility"));
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/settings");
+  if (!["public", "anonymous", "private"].includes(vis)) redirect(`/settings?error=${enc("Choose one of the options.")}`);
+  await supabase.from("profiles").update({ default_visibility: vis }).eq("id", user.id);
+  revalidatePath("/", "layout");
+  redirect(`/settings?message=${enc("Your default sharing setting is saved.")}`);
 }

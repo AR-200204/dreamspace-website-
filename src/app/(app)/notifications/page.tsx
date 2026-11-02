@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/DreamCard";
 import { REACTIONS } from "@/lib/moods";
 import type { NotificationRow } from "@/lib/types";
 import { cn, timeAgo } from "@/lib/utils";
+import { Theme } from "@/components/Theme";
 
 export const metadata: Metadata = { title: "Notifications", robots: { index: false } };
 
@@ -40,6 +41,7 @@ export default async function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      <Theme name="lantern" />
       <h1 className="font-display text-3xl">Notifications</h1>
       {items.length === 0 ? (
         <EmptyState title="Nothing yet">When people react, comment or follow, you&apos;ll see it here.</EmptyState>

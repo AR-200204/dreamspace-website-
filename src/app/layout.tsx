@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Hanken_Grotesk, Instrument_Serif } from "next/font/google";
 import { SITE } from "@/lib/config";
+import { PointerGlow } from "@/components/PointerGlow";
 import { RegisterSW } from "@/components/RegisterSW";
 import "./globals.css";
 
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <RegisterSW />
+        <PointerGlow />
       </body>
     </html>
   );

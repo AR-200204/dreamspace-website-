@@ -7,6 +7,7 @@ import { DreamCard, EmptyState, Pager } from "@/components/DreamCard";
 import { FollowButton } from "@/components/ActionButtons";
 import { Avatar } from "@/components/Avatar";
 import { StreakCard, type Streak } from "@/components/StreakCard";
+import { Theme, moodTheme } from "@/components/Theme";
 import { blockUser, logout, unblockUser } from "@/app/actions";
 import { PAGE_SIZE } from "@/lib/config";
 import { earnedBadges } from "@/lib/badges";
@@ -121,6 +122,7 @@ export default async function ProfilePage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
+      <Theme name={moodTheme(topMood)} />
       <header className="overflow-hidden rounded-[2rem] border border-line">
         {/* Banner, tinted by the mood they dream in most */}
         <div

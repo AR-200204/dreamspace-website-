@@ -5,6 +5,8 @@ import { Eye, Lock, Moon, Pencil, Sparkles, Trash2 } from "lucide-react";
 import { addComment, askAboutDream, deleteDream, exploreMeanings, react } from "@/app/actions";
 import { FollowButton, SaveButton } from "@/components/ActionButtons";
 import { AI_DAILY_LIMIT, AI_DISCLAIMER, aiConfigured } from "@/lib/ai";
+import { AiConsentCard } from "@/components/AiConsentCard";
+import { hasAiConsent } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { CommentThread } from "@/components/CommentThread";
 import { DreamCard } from "@/components/DreamCard";
@@ -15,10 +17,14 @@ import { DEFAULT_MOOD_COLOR, REACTIONS, getMood } from "@/lib/moods";
 import type { CommentRow, DreamRow } from "@/lib/types";
 import { anonymousName, excerpt, formatDate, cn } from "@/lib/utils";
 import { relatedTo, type PatternDream } from "@/lib/patterns";
+import { Theme, moodTheme } from "@/components/Theme";
 
 const CRISIS_TAGS = ["self-harm", "selfharm", "suicide", "suicidal"];
 const AI_MESSAGES: Record<string, string> = {
   unavailable: "AI interpretation isn't available right now.",
+  agree: "Please tick the box to agree before using AI features.",
+  consent: "Please agree to the AI terms below to use this feature.",
+  notallowed: "The author hasn't allowed AI interpretation of this dream.",
   limit: `You've reached today's limit of ${AI_DAILY_LIMIT} AI requests. Try again tomorrow.`,
   busy: "AI interpretations are very popular today and have reached the daily limit. Please try again tomorrow.",
   auth: "AI is temporarily unavailable. Please try again later.",
@@ -108,7 +114,10 @@ export default async function DreamPage({
     const { data: f } = await supabase.from("follows").select("followee_id").eq("follower_id", user.id).eq("followee_id", dream.author_id).maybeSingle();
     followingAuthor = Boolean(f);
   }
-  const showAi = isShared && (aiConfigured() || Boolean(aiSummary.data));
+  // The AI section appears when the author allowed AI on this dream (or when a shared reading already exists).
+  const aiOn = aiConfigured();
+  const showAi = isShared && (Boolean(aiSummary.data) || (aiOn && (dream.allow_ai || isOwner)));
+  const consented = user && aiOn && dream.allow_ai ? await hasAiConsent(supabase, user.id) : false;
 
   // Owner only: how this dream connects to the rest of their journal.
   let related: ReturnType<typeof relatedTo> | null = null;
@@ -143,6 +152,7 @@ export default async function DreamPage({
 
   return (
     <article className="mx-auto max-w-2xl">
+      <Theme name={moodTheme(dream.mood)} />
       {jsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />}
       {cerr && (
         <p role="alert" className="mb-5 rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">{cerr}</p>
@@ -307,17 +317,28 @@ export default async function DreamPage({
                 {AI_DISCLAIMER} Dream interpretation is subjective. These suggestions are for reflection and are not scientifically proven.
               </p>
             </div>
+          ) : !dream.allow_ai ? (
+            <p className="mt-4 text-sm leading-relaxed text-mist">
+              AI is off for this dream. Switch on <em>Allow AI interpretation</em> when you{" "}
+              <Link href={`/dreams/${dream.slug}/edit`} className="text-violet hover:underline">edit it</Link> to use this feature.
+            </p>
+          ) : !user ? (
+            <p className="mt-4 text-sm text-mist">
+              <Link href={`/login?next=/dreams/${dream.slug}`} className="text-violet hover:underline">Log in</Link> to use AI on this dream.
+            </p>
+          ) : !consented ? (
+            <AiConsentCard back={`/dreams/${dream.slug}`} anchor="meanings" />
           ) : (
             <form action={exploreMeanings} className="mt-4">
               <input type="hidden" name="slug" value={dream.slug} />
               <button className="btn-ghost">✨ Explore Possible Meanings</button>
               <p className="mt-2 text-xs text-mist/80">
-                Sends this dream&apos;s text to an AI service to suggest a few possible readings. {user ? "" : "Log in to use it."}
+                Sends this dream&apos;s text to an AI service to suggest a few possible readings. The author has allowed this.
               </p>
             </form>
           )}
 
-          {user && aiConfigured() && (
+          {user && aiOn && dream.allow_ai && consented && (
             <form action={askAboutDream} className="mt-5 flex flex-col gap-2 sm:flex-row">
               <input type="hidden" name="slug" value={dream.slug} />
               <input name="question" required minLength={3} maxLength={300} className="input" placeholder="Ask something, e.g. “Why was I flying?”" aria-label="Ask a question about this dream" />

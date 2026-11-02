@@ -1,5 +1,6 @@
 import { ImageUpload } from "./ImageUpload";
 import { LocalDateInput } from "./LocalDateInput";
+import { aiConfigured } from "@/lib/ai";
 import { MOODS } from "@/lib/moods";
 import type { DreamRow } from "@/lib/types";
 
@@ -7,11 +8,13 @@ export function DreamForm({
   action,
   dream,
   defaultTags,
+  defaultVisibility = "anonymous",
   submitLabel,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   dream?: DreamRow;
   defaultTags?: string;
+  defaultVisibility?: "public" | "anonymous" | "private";
   submitLabel: string;
 }) {
   const editing = Boolean(dream);
@@ -72,7 +75,7 @@ export function DreamForm({
             { v: "private", t: "Only me", d: "A private journal entry. Publish it later." },
           ].map((o) => (
             <label key={o.v} className="cursor-pointer">
-              <input type="radio" name="visibility" value={o.v} defaultChecked={(dream?.visibility ?? "anonymous") === o.v} className="peer sr-only" />
+              <input type="radio" name="visibility" value={o.v} defaultChecked={(dream?.visibility ?? defaultVisibility) === o.v} className="peer sr-only" />
               <span className="card block h-full p-4 text-sm transition-colors peer-checked:border-violet peer-checked:bg-violet/10 peer-focus-visible:outline-2 peer-focus-visible:outline-violet">
                 <span className="block font-medium text-moon">{o.t}</span>
                 <span className="mt-1 block text-mist">{o.d}</span>
@@ -84,6 +87,19 @@ export function DreamForm({
           <p className="mt-2 text-xs text-mist/80">Switching to “With my username” will show your username on this dream.</p>
         )}
       </fieldset>
+
+      {aiConfigured() && (
+        <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-line p-4 text-sm">
+          <input type="checkbox" name="allow_ai" defaultChecked={dream?.allow_ai} className="mt-1" />
+          <span>
+            <span className="block font-medium text-moon">Allow AI interpretation of this dream</span>
+            <span className="mt-1 block leading-relaxed text-mist">
+              If you tick this, people who agree to our AI terms can ask an AI service for possible readings. The dream text is sent to that service.
+              Off by default, never applies to private dreams, and you can turn it off any time (which also deletes AI text made from it).
+            </span>
+          </span>
+        </label>
+      )}
 
       <button className="btn-primary !px-8 !py-3.5 text-base">{submitLabel}</button>
     </form>

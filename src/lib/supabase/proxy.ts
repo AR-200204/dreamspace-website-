@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED = ["/dreams/new", "/settings"];
+const PROTECTED = ["/dreams/new", "/settings", "/welcome"];
 
 // Keeps the login session fresh and sends signed-out visitors away from private pages.
 export async function updateSession(request: NextRequest) {

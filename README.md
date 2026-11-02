@@ -53,6 +53,43 @@ coming back, moods and feelings over time, when you log dreams, dreams that echo
 It is calculated on the server from your own dreams with plain keyword matching. No AI, and nothing leaves your account.
 The optional **AI pattern report** uses the same `AI_*` settings, needs the person to tick a consent box, and is limited to one per day.
 
+## v14: welcome tour for new people
+
+1. Run **`supabase/migration-07-onboarding.sql`** once in the Supabase SQL Editor (after 02 to 06). Do this before deploying.
+2. Copy the files over your project and push.
+
+New sign-ups (email or Google) go through a four-step welcome tour at `/welcome`: welcome, goals, default sharing, and a personal plan with a
+button to write a first dream. The sky changes at each step and the steps slide in from the direction you are travelling. Choices are saved on the
+profile (goals, default_visibility) and used later, for example the write-a-dream form starts with your chosen privacy. People who already have an
+account are marked as done by the migration, so only new people see it. Anyone can skip, and replay it from Settings. The tour lives in
+`src/components/Onboarding.tsx`; the redirects are in `src/app/actions.ts` (pathAfterSignIn) and `src/app/auth/callback/route.ts`.
+
+## v12: landing page about lucid dreaming and better mornings
+
+No database changes: copy the files over your project and push. The landing page no longer shows example dreams. It now explains how the site helps:
+a lucid dreaming path (remember, spot dream signs, practise, share) with an interactive reality-check card, a "calmer nights, gentler mornings" section,
+a night-with-DreamSpace timeline, and a community call to action. Every claim maps to a real feature, and the page links to the published research and states
+that results vary and that the site is not medical advice. Copy lives in `src/app/page.tsx` (STEPS, CALM, NIGHT) and the reality checks in `src/components/RealityCheck.tsx`.
+
+## v11: a different sky for every section, and motion
+
+No database changes: copy the files over your project and push. Each section now has its own colour world (Explore aurora teal, Trending ember,
+Insights observatory blue, People twilight rose, Notifications lantern gold, Create dawn peach, Search/Settings/Admin slate, and each dream or profile
+takes its mood's colour). A page opts in with `<Theme name="..." />` (src/components/Theme.tsx); the colours are defined in the THEMES block of
+src/app/globals.css, and they crossfade as you navigate. The landing page changes sky as you scroll. Motion: staged headline reveal, scroll reveals,
+a cursor spotlight on cards, bars that grow in, counters, a loading screen, a gentle page transition, and a slowly breathing sky. All of it switches off
+for people who ask their device to reduce motion. Uses CSS `@property` and `:has()`, which work in current Chrome, Edge, Safari and Firefox.
+
+## v10: consent for AI features
+
+1. Run **`supabase/migration-06-ai-consent.sql`** once in the Supabase SQL Editor (after 02 to 05).
+2. Copy the files over your project, then push as usual.
+
+How it works: people must tick an agreement (shown once, with a clear note that free models may keep and train on the text) before any
+AI feature works. They can withdraw in Settings. A dream is only ever sent to the AI if its author ticked "Allow AI interpretation" on that dream
+(off by default, never for private dreams; turning it off deletes AI text made from it). To use free models set `AI_PRIVACY=open`
+in `.env.local` and Vercel, and turn on "free model training" in OpenRouter's privacy settings. Privacy and Terms pages update themselves to match.
+
 ## v7: AI with OpenRouter (free models)
 
 No database changes. In `.env.local` and in Vercel set: `AI_PROVIDER=openrouter`, `AI_API_KEY` (from openrouter.ai/keys) and
@@ -114,6 +151,7 @@ supabase/migration-02-features.sql    bookmarks, follows, notifications, blocks,
 supabase/migration-03-launch.sql      spam limits and streaks
 supabase/migration-04-insights.sql    stored AI pattern reports
 supabase/migration-05-people.sql      people discovery, follow suggestions, username limit
+supabase/migration-06-ai-consent.sql  AI consent and per-dream AI permission
 src/lib/patterns.ts                   the pattern finder (themes, words, moods, echoes)
 src/proxy.ts                          keeps login sessions fresh, protects private pages
 src/app/actions.ts                    every write action

@@ -5,6 +5,7 @@ import { getCurrentProfile, getFollowingSet } from "@/lib/data";
 import { EmptyState } from "@/components/DreamCard";
 import { PersonList, type Person } from "@/components/PersonCard";
 import { cn } from "@/lib/utils";
+import { Theme } from "@/components/Theme";
 
 // The "Followers" and "Following" lists on a profile.
 export async function Connections({ username, kind }: { username: string; kind: "followers" | "following" }) {
@@ -37,6 +38,7 @@ export async function Connections({ username, kind }: { username: string; kind: 
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      <Theme name="twilight" />
       <header>
         <Link href={`/u/${profile.username}`} className="text-sm text-mist hover:text-moon">← @{profile.username}</Link>
         <h1 className="mt-2 font-display">{kind === "followers" ? "Followers" : "Following"}</h1>

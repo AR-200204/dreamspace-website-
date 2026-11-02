@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Flame } from "lucide-react";
 
 export interface Streak {
   current: number;
@@ -19,7 +20,7 @@ export function StreakCard({ streak }: { streak: Streak }) {
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-3xl border border-line bg-white/3 py-2 pl-3 pr-5 sm:rounded-full text-sm" role="status">
-      <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-full bg-dawn/15">🔥</span>
+      <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-full bg-dawn/15 text-dawn"><Flame size={17} className={streak.current > 0 ? "flicker" : ""} /></span>
       <span className="text-moon">{streak.current > 0 ? `${streak.current}-day streak` : "No active streak"}</span>
       <span className="text-mist">
         {message}{" "}

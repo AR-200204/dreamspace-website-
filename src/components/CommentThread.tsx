@@ -3,9 +3,8 @@ import Link from "next/link";
 import { addComment, deleteComment } from "@/app/actions";
 import type { CommentRow } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
+import { buildCommentTree, type CommentNode } from "@/lib/comments";
 import { ReportForm } from "./ReportForm";
-
-type Node = CommentRow & { children: Node[] };
 
 // Turns @username into a link to that profile.
 function WithMentions({ text }: { text: string }) {
@@ -25,17 +24,6 @@ function WithMentions({ text }: { text: string }) {
   );
 }
 
-function buildTree(rows: CommentRow[]): Node[] {
-  const map = new Map<string, Node>();
-  rows.forEach((r) => map.set(r.id, { ...r, children: [] }));
-  const roots: Node[] = [];
-  map.forEach((n) => {
-    const parent = n.parent_id ? map.get(n.parent_id) : null;
-    (parent ? parent.children : roots).push(n);
-  });
-  return roots;
-}
-
 export function CommentThread({
   comments,
   dreamId,
@@ -49,7 +37,7 @@ export function CommentThread({
   signedIn: boolean;
   anonymousDream: boolean;
 }) {
-  const tree = buildTree(comments);
+  const tree = buildCommentTree(comments);
   if (tree.length === 0)
     return <p className="text-mist">No interpretations yet. Be the first to share what you think it might mean.</p>;
   return (
@@ -69,7 +57,7 @@ function CommentItem({
   signedIn,
   anonymousDream,
 }: {
-  node: Node;
+  node: CommentNode;
   depth: number;
   dreamId: string;
   slug: string;
